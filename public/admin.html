@@ -81,6 +81,36 @@
       <p>Total codes: <span id="total-codes">-</span></p>
       <p>Codes assignés: <span id="assigned-codes">-</span></p>
     </div>
+
+    <div class="section">
+      <h2>Modération</h2>
+      <p style="color: #888; margin-bottom: 10px;">Gérer les cellules peintes</p>
+      <button id="load-cells-btn">Charger les cellules</button>
+      <div style="margin-top: 10px;">
+        <label>
+          Filtrer par position:
+          <input type="number" id="filter-x" placeholder="X" style="width: 80px;" />
+          <input type="number" id="filter-y" placeholder="Y" style="width: 80px;" />
+          <button id="filter-btn">Filtrer</button>
+          <button id="clear-filter-btn">Tout</button>
+        </label>
+      </div>
+      <div id="cells-grid" style="margin-top: 10px; max-height: 500px; overflow-y: auto; background: #0f1420; padding: 10px; border-radius: 4px;">
+        <p style="color: #888;">Cliquez sur "Charger les cellules" pour voir les cellules peintes</p>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Export</h2>
+      <p style="color: #888; margin-bottom: 10px;">Exporter les données du projet</p>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <button id="export-codes-csv">📄 Codes (CSV)</button>
+        <button id="export-codes-json">📄 Codes (JSON)</button>
+        <button id="export-cells-csv">🎨 Cellules (CSV)</button>
+        <button id="export-cells-json">🎨 Cellules (JSON)</button>
+        <button id="export-full-json">💾 Export Complet (JSON)</button>
+      </div>
+    </div>
   </div>
 
   <script src="/admin.js"></script>

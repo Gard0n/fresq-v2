@@ -4,8 +4,18 @@ import { pool } from "./db.js";
 import { generateCode, normalizeCode } from "./utils.js";
 import path from "path";
 import { fileURLToPath } from "url";
+import { createServer } from "http";
+import { Server } from "socket.io";
 
 const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
+
 const PORT = Number(process.env.PORT || 3001);
 
 app.use(express.json({ limit: "1mb" }));
@@ -141,6 +151,10 @@ app.post("/api/cell/claim", async (req, res) => {
     );
 
     await client.query("COMMIT");
+
+    // Broadcast cell claim via WebSocket
+    io.emit('cell:claimed', { x, y });
+
     res.json({ ok: true });
   } catch (err) {
     await client.query("ROLLBACK");
@@ -180,6 +194,10 @@ app.post("/api/cell/paint", async (req, res) => {
     );
 
     await client.query("COMMIT");
+
+    // Broadcast cell paint via WebSocket
+    io.emit('cell:painted', { x: row.cell_x, y: row.cell_y, color });
+
     res.json({ ok: true, x: row.cell_x, y: row.cell_y, color });
   } catch (err) {
     await client.query("ROLLBACK");
@@ -328,9 +346,211 @@ app.get("/api/admin/stats", requireAdmin, async (req, res) => {
   }
 });
 
+app.get("/api/admin/cells", requireAdmin, async (req, res) => {
+  const limit = Math.min(Number(req.query.limit || 100), 1000);
+  const offset = Number(req.query.offset || 0);
+
+  const client = await pool.connect();
+  try {
+    const result = await client.query(
+      "SELECT code, cell_x AS x, cell_y AS y, color, updated_at FROM codes WHERE cell_x IS NOT NULL ORDER BY updated_at DESC LIMIT $1 OFFSET $2",
+      [limit, offset]
+    );
+
+    const countRes = await client.query("SELECT COUNT(*)::int AS total FROM codes WHERE cell_x IS NOT NULL");
+
+    res.json({
+      ok: true,
+      cells: result.rows,
+      total: countRes.rows[0].total
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'cells_error' });
+  } finally {
+    client.release();
+  }
+});
+
+app.post("/api/admin/cell/delete", requireAdmin, async (req, res) => {
+  const x = Number(req.body?.x);
+  const y = Number(req.body?.y);
+
+  if (!Number.isInteger(x) || !Number.isInteger(y)) {
+    return res.status(400).json({ error: 'invalid_params' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const result = await client.query(
+      "UPDATE codes SET cell_x = NULL, cell_y = NULL, color = NULL, updated_at = NOW() WHERE cell_x = $1 AND cell_y = $2 RETURNING code",
+      [x, y]
+    );
+
+    if (result.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.json({ ok: false, error: 'cell_not_found' });
+    }
+
+    await client.query("COMMIT");
+
+    // Broadcast cell deletion via WebSocket
+    io.emit('cell:deleted', { x, y });
+
+    res.json({ ok: true, code: result.rows[0].code });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    res.status(500).json({ error: 'delete_error' });
+  } finally {
+    client.release();
+  }
+});
+
+app.post("/api/admin/cell/reset-color", requireAdmin, async (req, res) => {
+  const x = Number(req.body?.x);
+  const y = Number(req.body?.y);
+
+  if (!Number.isInteger(x) || !Number.isInteger(y)) {
+    return res.status(400).json({ error: 'invalid_params' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const result = await client.query(
+      "UPDATE codes SET color = NULL, updated_at = NOW() WHERE cell_x = $1 AND cell_y = $2 RETURNING code",
+      [x, y]
+    );
+
+    if (result.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.json({ ok: false, error: 'cell_not_found' });
+    }
+
+    await client.query("COMMIT");
+
+    // Broadcast color reset via WebSocket
+    io.emit('cell:deleted', { x, y });
+
+    res.json({ ok: true });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    res.status(500).json({ error: 'reset_error' });
+  } finally {
+    client.release();
+  }
+});
+
+app.get("/api/admin/export/codes", requireAdmin, async (req, res) => {
+  const format = req.query.format || 'json';
+
+  const client = await pool.connect();
+  try {
+    const result = await client.query(
+      "SELECT code, cell_x AS x, cell_y AS y, color, created_at, updated_at FROM codes ORDER BY created_at DESC"
+    );
+
+    if (format === 'csv') {
+      const csv = [
+        'code,x,y,color,created_at,updated_at',
+        ...result.rows.map(r => `${r.code},${r.x || ''},${r.y || ''},${r.color || ''},${r.created_at},${r.updated_at}`)
+      ].join('\n');
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="fresq_codes_${Date.now()}.csv"`);
+      res.send(csv);
+    } else {
+      res.json({
+        ok: true,
+        timestamp: new Date().toISOString(),
+        total: result.rowCount,
+        codes: result.rows
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'export_error' });
+  } finally {
+    client.release();
+  }
+});
+
+app.get("/api/admin/export/cells", requireAdmin, async (req, res) => {
+  const format = req.query.format || 'json';
+
+  const client = await pool.connect();
+  try {
+    const result = await client.query(
+      "SELECT cell_x AS x, cell_y AS y, color, code, updated_at FROM codes WHERE cell_x IS NOT NULL ORDER BY updated_at DESC"
+    );
+
+    if (format === 'csv') {
+      const csv = [
+        'x,y,color,code,updated_at',
+        ...result.rows.map(r => `${r.x},${r.y},${r.color || ''},${r.code},${r.updated_at}`)
+      ].join('\n');
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="fresq_cells_${Date.now()}.csv"`);
+      res.send(csv);
+    } else {
+      res.json({
+        ok: true,
+        timestamp: new Date().toISOString(),
+        total: result.rowCount,
+        cells: result.rows
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'export_error' });
+  } finally {
+    client.release();
+  }
+});
+
+app.get("/api/admin/export/full", requireAdmin, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const configRes = await getConfig(client);
+    const codesRes = await client.query(
+      "SELECT code, cell_x AS x, cell_y AS y, color, created_at, updated_at FROM codes"
+    );
+    const statsRes = await client.query(
+      "SELECT COUNT(*)::int AS total_codes, COUNT(CASE WHEN cell_x IS NOT NULL THEN 1 END)::int AS assigned_codes FROM codes"
+    );
+
+    res.json({
+      ok: true,
+      timestamp: new Date().toISOString(),
+      config: {
+        grid_w: configRes.grid_w,
+        grid_h: configRes.grid_h,
+        palette: configRes.palette
+      },
+      stats: statsRes.rows[0],
+      codes: codesRes.rows
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'export_error' });
+  } finally {
+    client.release();
+  }
+});
+
+// ===== WEBSOCKET CONNECTION =====
+io.on('connection', (socket) => {
+  console.log(`✅ Client connected: ${socket.id}`);
+
+  socket.on('disconnect', () => {
+    console.log(`❌ Client disconnected: ${socket.id}`);
+  });
+});
+
 // ===== STATIC FILES =====
 app.use(express.static(path.join(__dirname, "..", "public")));
 
-app.listen(PORT, () => {
+httpServer.listen(PORT, () => {
   console.log(`🚀 FRESQ V2 running on http://localhost:${PORT}`);
+  console.log(`🔌 WebSocket server ready`);
 });

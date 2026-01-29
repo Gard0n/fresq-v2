@@ -10,8 +10,14 @@ const statusEl = document.getElementById('status');
 const centerBtn = document.getElementById('center-btn');
 const resetZoomBtn = document.getElementById('reset-zoom-btn');
 const zoomLevelEl = document.getElementById('zoom-level');
-const cellsCountEl = document.getElementById('cells-count');
 const pollStatusEl = document.getElementById('poll-status');
+const statsTextEl = document.getElementById('stats-text');
+const progressBarEl = document.getElementById('progress-bar');
+const progressPercentEl = document.getElementById('progress-percent');
+const observerBtn = document.getElementById('observer-btn');
+const observerBadge = document.getElementById('observer-badge');
+const codeRow = document.getElementById('code-row');
+const paintRow = document.getElementById('paint-row');
 const coordsTooltip = document.getElementById('coords-tooltip');
 const exportBtn = document.getElementById('export-btn');
 const minimapCanvas = document.getElementById('minimap-canvas');
@@ -24,6 +30,7 @@ let cells = new Map();
 let currentCode = null;
 let myCell = null;
 let activeColor = 1;
+let isObserverMode = false;
 
 const CELL_SIZE = 3;
 
@@ -152,7 +159,7 @@ function setupKeyboardShortcuts() {
     // Ignore if typing in input
     if (e.target.tagName === 'INPUT') return;
 
-    // Numbers 1-9 for color selection
+    // Numbers 1-9 for color selection, 0 for 10th color
     if (e.key >= '1' && e.key <= '9') {
       const colorIndex = parseInt(e.key) - 1;
       if (colorIndex < palette.length) {
@@ -162,6 +169,13 @@ function setupKeyboardShortcuts() {
         });
         e.preventDefault();
       }
+    } else if (e.key === '0' && palette.length >= 10) {
+      // 0 key selects the 10th color
+      activeColor = 10;
+      document.querySelectorAll('.color').forEach((el, i) => {
+        el.classList.toggle('active', i === 9);
+      });
+      e.preventDefault();
     }
 
     // Space to paint
@@ -273,8 +287,8 @@ async function loadState() {
       cells.set(`${cell.x},${cell.y}`, cell.color);
     });
 
-    draw();
     updateCellsCount();
+    draw();
     setStatus(`Grille chargée - ${data.cells.length} cases`, 'success');
   } catch (err) {
     console.error('Load state error:', err);
@@ -368,6 +382,21 @@ function screenToGrid(screenX, screenY) {
   return { x: gridX, y: gridY };
 }
 
+// ===== OBSERVER MODE =====
+observerBtn.onclick = () => {
+  isObserverMode = true;
+  observerBadge.classList.remove('hidden');
+
+  // Hide code input and paint controls
+  codeInput.disabled = true;
+  validateBtn.disabled = true;
+  observerBtn.disabled = true;
+  paintRow.style.opacity = '0.3';
+  paintRow.style.pointerEvents = 'none';
+
+  setStatus('Mode observateur activé - Vue seule', 'success');
+};
+
 // ===== EVENTS =====
 validateBtn.onclick = async () => {
   const code = codeInput.value.trim().toUpperCase();
@@ -410,7 +439,7 @@ validateBtn.onclick = async () => {
 };
 
 canvas.onclick = async (e) => {
-  if (isPanning) return;
+  if (isPanning || isObserverMode) return;
 
   if (!currentCode) {
     setStatus('Entre un code d\'abord', 'error');
@@ -526,7 +555,13 @@ function updateZoomIndicator() {
 }
 
 function updateCellsCount() {
-  cellsCountEl.textContent = `Cases: ${cells.size}`;
+  const total = gridW * gridH; // 40,000
+  const painted = cells.size;
+  const percent = ((painted / total) * 100).toFixed(1);
+
+  statsTextEl.textContent = `${painted.toLocaleString('fr-FR')} / ${total.toLocaleString('fr-FR')} cases`;
+  progressBarEl.style.width = `${percent}%`;
+  progressPercentEl.textContent = `${percent}%`;
 }
 
 function setStatus(message, type = 'info') {
@@ -536,8 +571,56 @@ function setStatus(message, type = 'info') {
   if (type === 'error') statusEl.classList.add('error');
 }
 
-// ===== POLLING TEMPS RÉEL =====
+// ===== WEBSOCKETS TEMPS RÉEL =====
+let socket = null;
 let pollingInterval = null;
+let isConnected = false;
+
+function connectWebSocket() {
+  socket = io();
+
+  socket.on('connect', () => {
+    console.log('🔌 WebSocket connected');
+    isConnected = true;
+    pollStatusEl.style.color = '#2a4';
+    pollStatusEl.textContent = '● Live';
+    pollStatusEl.title = 'WebSocket connecté';
+
+    // Stop polling when WebSocket is connected
+    stopPolling();
+  });
+
+  socket.on('disconnect', () => {
+    console.log('🔌 WebSocket disconnected');
+    isConnected = false;
+    pollStatusEl.style.color = '#f80';
+    pollStatusEl.textContent = '● Polling';
+    pollStatusEl.title = 'Fallback polling actif';
+
+    // Start polling as fallback
+    startPolling();
+  });
+
+  socket.on('cell:painted', (data) => {
+    const key = `${data.x},${data.y}`;
+    cells.set(key, data.color);
+    newCells.set(key, Date.now());
+    draw();
+    updateCellsCount();
+  });
+
+  socket.on('cell:claimed', (data) => {
+    // Just trigger a refresh for now
+    console.log('Cell claimed:', data);
+  });
+
+  socket.on('cell:deleted', (data) => {
+    const key = `${data.x},${data.y}`;
+    cells.delete(key);
+    draw();
+    updateCellsCount();
+  });
+}
 
 async function pollUpdates() {
   try {
@@ -553,7 +636,7 @@ async function pollUpdates() {
 
       if (currentColor !== cell.color) {
         cells.set(key, cell.color);
-        newCells.set(key, Date.now()); // Mark as new for animation
+        newCells.set(key, Date.now());
         hasChanges = true;
       }
     });
@@ -563,11 +646,7 @@ async function pollUpdates() {
       updateCellsCount();
     }
 
-    // Update poll status indicator
-    pollStatusEl.style.color = '#2a4';
-    setTimeout(() => {
-      pollStatusEl.style.color = '#6FE6FF';
-    }, 200);
+    pollStatusEl.style.color = '#f80';
   } catch (err) {
     console.error('Poll error:', err);
     pollStatusEl.style.color = '#f44';
@@ -575,18 +654,20 @@ async function pollUpdates() {
 }
 
 function startPolling() {
-  // Poll toutes les 5 secondes
-  pollingInterval = setInterval(pollUpdates, 5000);
-  console.log('✅ Polling activé (5s)');
+  if (!pollingInterval) {
+    pollingInterval = setInterval(pollUpdates, 5000);
+    console.log('✅ Fallback polling activé (5s)');
+  }
 }
 
 function stopPolling() {
   if (pollingInterval) {
     clearInterval(pollingInterval);
     pollingInterval = null;
+    console.log('⏸️ Polling désactivé');
   }
 }
 
 // ===== START =====
 init();
-startPolling();
+connectWebSocket();

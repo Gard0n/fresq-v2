@@ -41,6 +41,7 @@
       display: flex;
       align-items: center;
       gap: 16px;
+      flex-wrap: wrap;
     }
 
     #top-bar h1 {
@@ -61,6 +62,47 @@
       border-radius: 16px;
       font-size: 12px;
       color: #6FE6FF;
+    }
+
+    /* Stats display */
+    #stats-display {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 16px;
+      background: rgba(42, 170, 68, 0.1);
+      border: 1px solid rgba(42, 170, 68, 0.3);
+      border-radius: 8px;
+    }
+
+    #stats-text {
+      font-size: 13px;
+      color: #6FE6FF;
+      font-weight: 500;
+      min-width: 180px;
+    }
+
+    #progress-bar-container {
+      width: 200px;
+      height: 8px;
+      background: rgba(26, 31, 46, 0.8);
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid #2a3f5f;
+    }
+
+    #progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #2a4 0%, #3c5 100%);
+      transition: width 0.5s ease;
+      width: 0%;
+    }
+
+    #progress-percent {
+      font-size: 12px;
+      color: #888;
+      min-width: 45px;
+      text-align: right;
     }
 
     /* Controls */
@@ -132,6 +174,41 @@
     button.secondary:hover {
       background: rgba(42, 63, 95, 0.5);
       box-shadow: 0 4px 12px rgba(42, 63, 95, 0.3);
+    }
+
+    button.observer {
+      background: linear-gradient(135deg, #6FE6FF 0%, #B66BFF 100%);
+      border: 1px solid #6FE6FF;
+    }
+
+    button.observer:hover {
+      box-shadow: 0 4px 12px rgba(111, 230, 255, 0.3);
+    }
+
+    .observer-badge {
+      position: fixed;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(111, 230, 255, 0.15);
+      backdrop-filter: blur(10px);
+      border: 2px solid #6FE6FF;
+      padding: 12px 24px;
+      border-radius: 24px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #6FE6FF;
+      z-index: 100;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+
+    .hidden {
+      display: none !important;
     }
 
     #palette {
@@ -274,13 +351,20 @@
 <body>
   <div id="top-bar">
     <h1>🎨 FRESQ V2</h1>
+    <div id="stats-display">
+      <span id="stats-text">- / 40,000 cases</span>
+      <div id="progress-bar-container">
+        <div id="progress-bar"></div>
+      </div>
+      <span id="progress-percent">0.0%</span>
+    </div>
     <div class="spacer"></div>
-    <div class="info-pill" id="cells-count">Cases: -</div>
     <div class="info-pill" id="poll-status">●</div>
   </div>
 
   <div id="canvas-container">
     <canvas id="grid"></canvas>
+    <div id="observer-badge" class="observer-badge hidden">👁️ Mode Observateur</div>
     <div id="zoom-info">Zoom: <span id="zoom-level">100%</span></div>
     <div id="coords-tooltip">x: -, y: -</div>
     <div id="minimap">
@@ -289,15 +373,16 @@
   </div>
 
   <div id="controls">
-    <div class="row">
+    <div class="row" id="code-row">
       <input id="code-input" placeholder="Entre ton code (ex: ABC-12345)" style="flex: 1; max-width: 300px;" />
       <button id="validate-btn">✓ Valider le code</button>
+      <button id="observer-btn" class="observer">👁️ Mode Observateur</button>
       <div id="status">Attente d'un code...</div>
       <div class="spacer"></div>
       <button class="secondary" onclick="location.href='/admin.html'">⚙️ Admin</button>
     </div>
 
-    <div class="row">
+    <div class="row" id="paint-row">
       <div style="font-size: 12px; color: #888; width: 100px;">Palette:</div>
       <div id="palette"></div>
       <button id="paint-btn" disabled>🎨 Peindre ma case</button>
@@ -308,10 +393,11 @@
     </div>
 
     <div class="helper">
-      💡 Molette = Zoom • Shift + Clic = Déplacer • Clic = Choisir une case • 1-9 = Couleurs • Espace = Peindre • Flèches = Déplacer
+      💡 Molette = Zoom • Shift + Clic = Déplacer • Clic = Choisir une case • 1-9,0 = Couleurs • Espace = Peindre • Flèches = Déplacer
     </div>
   </div>
 
+  <script src="/socket.io/socket.io.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

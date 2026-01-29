@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS config (
   palette TEXT[] NOT NULL DEFAULT ARRAY[
     '#ff0000', '#00ff00', '#0000ff',
     '#ffff00', '#ff00ff', '#00ffff',
-    '#ff8800', '#8800ff', '#00ff88'
+    '#ff8800', '#8800ff', '#00ff88',
+    '#ffffff'
   ],
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
@@ -22,7 +23,8 @@ INSERT INTO config (id, grid_w, grid_h, palette)
 VALUES (TRUE, 200, 200, ARRAY[
   '#ff0000', '#00ff00', '#0000ff',
   '#ffff00', '#ff00ff', '#00ffff',
-  '#ff8800', '#8800ff', '#00ff88'
+  '#ff8800', '#8800ff', '#00ff88',
+  '#ffffff'
 ])
 ON CONFLICT (id) DO NOTHING;
 

@@ -23,6 +23,42 @@
       height: 100vh;
       padding: 20px;
       text-align: center;
+      position: relative;
+    }
+
+    #step1-background {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+    }
+
+    #step1-background canvas {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0.15;
+      filter: blur(2px);
+    }
+
+    #step1-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at center, rgba(10, 14, 26, 0.7) 0%, rgba(10, 14, 26, 0.95) 100%);
+      z-index: 1;
+    }
+
+    #step1-content {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
 
     #step1-screen h1 {
@@ -116,6 +152,7 @@
       border-radius: 8px;
       padding: 16px;
       max-width: 300px;
+      z-index: 10;
     }
 
     #my-cells-panel h3 {
@@ -145,6 +182,16 @@
       display: flex;
       flex-direction: column;
       height: 100vh;
+    }
+
+    #step2-screen #canvas-container {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #0a0e1a;
+      position: relative;
+      overflow: hidden;
     }
 
     #canvas-container {
@@ -558,26 +605,37 @@
 <body>
   <!-- STEP 1: Code Input Screen -->
   <div id="step1-screen">
-    <h1>🎨 FRESQ V2</h1>
-    <div class="subtitle">Fresque Collaborative</div>
-    <div class="explanation">
-      Bienvenue sur FRESQ, une fresque collaborative géante de 200×200 cases (40,000 pixels).
-      <br><br>
-      Chaque code unique te donne accès à une case que tu pourras peindre avec 10 couleurs disponibles.
-      Tu peux repeindre ta case autant de fois que tu veux !
-      <br><br>
-      Entre ton code pour commencer...
-    </div>
-    <div class="code-input-box">
-      <input type="text" id="code-input-step1" placeholder="ABC-12345" />
-      <button id="submit-code-btn">Valider</button>
-      <div id="step1-status" class="status-msg"></div>
+    <!-- Background canvas with fresque -->
+    <div id="step1-background">
+      <canvas id="background-canvas"></canvas>
     </div>
 
-    <!-- My Cells Panel (shown when user has existing cells) -->
-    <div id="my-cells-panel" class="hidden">
-      <h3>📌 Mes cases peintes</h3>
-      <div id="my-cells-list"></div>
+    <!-- Dark overlay for readability -->
+    <div id="step1-overlay"></div>
+
+    <!-- Content on top -->
+    <div id="step1-content">
+      <h1>🎨 FRESQ V2</h1>
+      <div class="subtitle">Fresque Collaborative</div>
+      <div class="explanation">
+        Bienvenue sur FRESQ, une fresque collaborative géante de 200×200 cases (40,000 pixels).
+        <br><br>
+        Chaque code unique te donne accès à une case que tu pourras peindre avec 10 couleurs disponibles.
+        Tu peux repeindre ta case autant de fois que tu veux !
+        <br><br>
+        Entre ton code pour commencer...
+      </div>
+      <div class="code-input-box">
+        <input type="text" id="code-input-step1" placeholder="ABC-12345" />
+        <button id="submit-code-btn">Valider</button>
+        <div id="step1-status" class="status-msg"></div>
+      </div>
+
+      <!-- My Cells Panel (shown when user has existing cells) -->
+      <div id="my-cells-panel" class="hidden">
+        <h3>📌 Mes cases peintes</h3>
+        <div id="my-cells-list"></div>
+      </div>
     </div>
   </div>
 

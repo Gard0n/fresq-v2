@@ -21,6 +21,8 @@ let magnifierActive = false;
 // Canvas & rendering
 const canvas = document.getElementById('grid');
 const ctx = canvas.getContext('2d');
+const backgroundCanvas = document.getElementById('background-canvas');
+const backgroundCtx = backgroundCanvas ? backgroundCanvas.getContext('2d') : null;
 const CELL_SIZE = 3;
 
 // Zoom & Pan
@@ -98,6 +100,13 @@ async function init() {
     setupMinimap();
     connectWebSocket();
 
+    // Redraw background when window resizes
+    window.addEventListener('resize', () => {
+      if (currentStep === 1) {
+        drawBackgroundFresque();
+      }
+    });
+
     // Show step 1 by default
     showStep(1);
   } catch (err) {
@@ -161,6 +170,7 @@ function showStep(step) {
   if (step === 1) {
     step1Screen.classList.remove('hidden');
     updateMyCellsPanel();
+    drawBackgroundFresque();
   } else if (step === 2) {
     step2Screen.classList.remove('hidden');
     toolsMenuBtn.classList.remove('hidden');
@@ -171,6 +181,46 @@ function showStep(step) {
     toolsMenuBtn.classList.remove('hidden');
     draw();
   }
+}
+
+// Draw fresque in background of step 1
+function drawBackgroundFresque() {
+  if (!backgroundCanvas || !backgroundCtx) return;
+
+  // Set canvas to full window size
+  backgroundCanvas.width = window.innerWidth;
+  backgroundCanvas.height = window.innerHeight;
+
+  const canvasWidth = backgroundCanvas.width;
+  const canvasHeight = backgroundCanvas.height;
+
+  // Calculate scale to fit grid
+  const scaleX = canvasWidth / (gridW * CELL_SIZE);
+  const scaleY = canvasHeight / (gridH * CELL_SIZE);
+  const scale = Math.min(scaleX, scaleY);
+
+  // Center the grid
+  const gridPixelWidth = gridW * CELL_SIZE * scale;
+  const gridPixelHeight = gridH * CELL_SIZE * scale;
+  const offsetX = (canvasWidth - gridPixelWidth) / 2;
+  const offsetY = (canvasHeight - gridPixelHeight) / 2;
+
+  // Clear background
+  backgroundCtx.fillStyle = '#0a0e1a';
+  backgroundCtx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+  backgroundCtx.save();
+  backgroundCtx.translate(offsetX, offsetY);
+  backgroundCtx.scale(scale, scale);
+
+  // Draw all painted cells
+  cells.forEach((color, key) => {
+    const [x, y] = key.split(',').map(Number);
+    backgroundCtx.fillStyle = palette[color - 1];
+    backgroundCtx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+  });
+
+  backgroundCtx.restore();
 }
 
 function showStep1Status(msg, type = 'info') {
@@ -567,13 +617,15 @@ function draw() {
   ctx.translate(offsetX, offsetY);
   ctx.scale(scale, scale);
 
-  // Background grid with gray for empty cells
-  for (let y = 0; y < gridH; y++) {
-    for (let x = 0; x < gridW; x++) {
-      const key = `${x},${y}`;
-      if (!cells.has(key)) {
-        ctx.fillStyle = '#1a1a1a';
-        ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+  // Background grid with gray for empty cells (only in step 3, not in step 2)
+  if (currentStep === 3) {
+    for (let y = 0; y < gridH; y++) {
+      for (let x = 0; x < gridW; x++) {
+        const key = `${x},${y}`;
+        if (!cells.has(key)) {
+          ctx.fillStyle = '#1a1a1a';
+          ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+        }
       }
     }
   }
@@ -886,6 +938,10 @@ function connectWebSocket() {
     newCells.set(key, now);
     draw();
     updateCellsCount();
+    // Update background if on step 1
+    if (currentStep === 1) {
+      drawBackgroundFresque();
+    }
   });
 
   socket.on('cell:deleted', (data) => {
@@ -894,6 +950,10 @@ function connectWebSocket() {
     cellTimestamps.delete(key);
     draw();
     updateCellsCount();
+    // Update background if on step 1
+    if (currentStep === 1) {
+      drawBackgroundFresque();
+    }
   });
 }
 

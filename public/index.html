@@ -7,16 +7,148 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      background: linear-gradient(135deg, #0a0e1a 0%, #1a1f2e 100%);
+      background: #0a0e1a;
       color: #fff;
       font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
       overflow: hidden;
       height: 100vh;
     }
 
+    /* === STEP 1: CODE INPUT SCREEN === */
+    #step1-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      padding: 20px;
+      text-align: center;
+    }
+
+    #step1-screen h1 {
+      font-size: 48px;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, #6FE6FF 0%, #B66BFF 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    #step1-screen .subtitle {
+      font-size: 18px;
+      color: #888;
+      margin-bottom: 40px;
+    }
+
+    #step1-screen .explanation {
+      max-width: 600px;
+      margin-bottom: 40px;
+      line-height: 1.6;
+      color: #aaa;
+      font-size: 15px;
+    }
+
+    #step1-screen .code-input-box {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      align-items: center;
+    }
+
+    #step1-screen input {
+      padding: 16px 24px;
+      font-size: 18px;
+      border: 2px solid #2a3f5f;
+      background: rgba(26, 31, 46, 0.8);
+      color: #fff;
+      border-radius: 8px;
+      width: 350px;
+      max-width: 90vw;
+      text-align: center;
+      transition: all 0.2s;
+    }
+
+    #step1-screen input:focus {
+      outline: none;
+      border-color: #6FE6FF;
+      background: rgba(26, 31, 46, 1);
+    }
+
+    #step1-screen button {
+      padding: 16px 48px;
+      font-size: 16px;
+      background: linear-gradient(135deg, #2a4 0%, #1a3 100%);
+      border: 1px solid #3b5;
+      color: #fff;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    #step1-screen button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(42, 170, 68, 0.4);
+    }
+
+    #step1-screen .status-msg {
+      margin-top: 16px;
+      font-size: 14px;
+      min-height: 20px;
+    }
+
+    #step1-screen .status-msg.error {
+      color: #ff6b6b;
+    }
+
+    #step1-screen .status-msg.success {
+      color: #6FE6FF;
+    }
+
+    /* My Cells Panel */
+    #my-cells-panel {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(26, 31, 46, 0.95);
+      backdrop-filter: blur(10px);
+      border: 1px solid #2a3f5f;
+      border-radius: 8px;
+      padding: 16px;
+      max-width: 300px;
+    }
+
+    #my-cells-panel h3 {
+      font-size: 14px;
+      margin-bottom: 12px;
+      color: #6FE6FF;
+    }
+
+    #my-cells-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .my-cell-item {
+      font-size: 12px;
+      padding: 6px 10px;
+      background: rgba(42, 63, 95, 0.3);
+      border-radius: 4px;
+      border: 1px solid #2a3f5f;
+    }
+
+    /* === STEP 2: CELL SELECTION SCREEN === */
+    #step2-screen {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
     #canvas-container {
-      width: 100vw;
-      height: calc(100vh - 140px);
+      flex: 1;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -25,201 +157,33 @@
       overflow: hidden;
     }
 
-    canvas {
+    canvas#grid {
       border: 2px solid #2a3f5f;
       border-radius: 4px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.4);
       cursor: crosshair;
     }
 
-    /* Top bar */
-    #top-bar {
-      background: rgba(26, 31, 46, 0.95);
-      backdrop-filter: blur(10px);
-      padding: 12px 20px;
-      border-bottom: 1px solid #2a3f5f;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      flex-wrap: wrap;
-    }
-
-    #top-bar h1 {
-      font-size: 20px;
-      font-weight: 600;
-      background: linear-gradient(135deg, #6FE6FF 0%, #B66BFF 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .spacer { flex: 1; }
-
-    .info-pill {
-      padding: 6px 12px;
-      background: rgba(111, 230, 255, 0.1);
-      border: 1px solid rgba(111, 230, 255, 0.3);
-      border-radius: 16px;
-      font-size: 12px;
-      color: #6FE6FF;
-    }
-
-    /* Stats display */
-    #stats-display {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 8px 16px;
-      background: rgba(42, 170, 68, 0.1);
-      border: 1px solid rgba(42, 170, 68, 0.3);
-      border-radius: 8px;
-    }
-
-    #stats-text {
-      font-size: 13px;
-      color: #6FE6FF;
-      font-weight: 500;
-      min-width: 180px;
-    }
-
-    #progress-bar-container {
-      width: 200px;
-      height: 8px;
-      background: rgba(26, 31, 46, 0.8);
-      border-radius: 4px;
-      overflow: hidden;
-      border: 1px solid #2a3f5f;
-    }
-
-    #progress-bar {
-      height: 100%;
-      background: linear-gradient(90deg, #2a4 0%, #3c5 100%);
-      transition: width 0.5s ease;
-      width: 0%;
-    }
-
-    #progress-percent {
-      font-size: 12px;
-      color: #888;
-      min-width: 45px;
-      text-align: right;
-    }
-
-    /* Controls */
-    #controls {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
+    #step2-controls {
       background: rgba(10, 14, 26, 0.98);
       backdrop-filter: blur(20px);
-      padding: 16px 20px;
+      padding: 20px;
       border-top: 1px solid #2a3f5f;
-      box-shadow: 0 -4px 24px rgba(0,0,0,0.3);
-    }
-
-    .row {
       display: flex;
-      gap: 12px;
+      flex-direction: column;
+      gap: 16px;
       align-items: center;
-      margin-bottom: 12px;
     }
 
-    .row:last-child { margin-bottom: 0; }
-
-    input, button {
-      padding: 10px 16px;
-      border: 1px solid #2a3f5f;
-      background: rgba(26, 31, 46, 0.8);
-      color: #fff;
-      border-radius: 6px;
-      font-size: 14px;
-      transition: all 0.2s;
-    }
-
-    input:focus {
-      outline: none;
-      border-color: #6FE6FF;
-      background: rgba(26, 31, 46, 1);
-    }
-
-    button {
-      cursor: pointer;
-      background: linear-gradient(135deg, #2a4 0%, #1a3 100%);
-      border: 1px solid #3b5;
-      font-weight: 500;
-    }
-
-    button:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(42, 170, 68, 0.3);
-    }
-
-    button:active {
-      transform: translateY(0);
-    }
-
-    button:disabled {
-      background: #333;
-      border-color: #444;
-      cursor: not-allowed;
-      opacity: 0.5;
-    }
-
-    button.secondary {
-      background: rgba(26, 31, 46, 0.8);
-      border-color: #2a3f5f;
-    }
-
-    button.secondary:hover {
-      background: rgba(42, 63, 95, 0.5);
-      box-shadow: 0 4px 12px rgba(42, 63, 95, 0.3);
-    }
-
-    button.observer {
-      background: linear-gradient(135deg, #6FE6FF 0%, #B66BFF 100%);
-      border: 1px solid #6FE6FF;
-    }
-
-    button.observer:hover {
-      box-shadow: 0 4px 12px rgba(111, 230, 255, 0.3);
-    }
-
-    .observer-badge {
-      position: fixed;
-      top: 80px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(111, 230, 255, 0.15);
-      backdrop-filter: blur(10px);
-      border: 2px solid #6FE6FF;
-      padding: 12px 24px;
-      border-radius: 24px;
-      font-size: 14px;
-      font-weight: 600;
-      color: #6FE6FF;
-      z-index: 100;
-      animation: fadeIn 0.3s ease;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
-      to { opacity: 1; transform: translateX(-50%) translateY(0); }
-    }
-
-    .hidden {
-      display: none !important;
-    }
-
-    #palette {
+    #step2-palette {
       display: flex;
-      gap: 8px;
+      gap: 10px;
     }
 
     .color {
-      width: 40px;
-      height: 40px;
-      border-radius: 6px;
+      width: 45px;
+      height: 45px;
+      border-radius: 8px;
       cursor: pointer;
       border: 2px solid transparent;
       transition: all 0.2s;
@@ -232,7 +196,7 @@
 
     .color.active {
       border-color: #fff;
-      box-shadow: 0 0 16px rgba(255,255,255,0.4);
+      box-shadow: 0 0 16px rgba(255,255,255,0.5);
     }
 
     .color.active::after {
@@ -243,32 +207,237 @@
       transform: translate(-50%, -50%);
       color: #000;
       font-weight: bold;
-      font-size: 18px;
+      font-size: 20px;
       text-shadow: 0 0 4px rgba(255,255,255,0.8);
     }
 
-    #status {
-      padding: 10px 16px;
-      background: rgba(26, 31, 46, 0.8);
-      border-radius: 6px;
-      font-size: 13px;
-      min-width: 300px;
-      border: 1px solid #2a3f5f;
+    #confirm-paint-btn {
+      padding: 14px 40px;
+      font-size: 16px;
+      background: linear-gradient(135deg, #2a4 0%, #1a3 100%);
+      border: 1px solid #3b5;
+      color: #fff;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
     }
 
-    #status.success {
-      background: rgba(42, 170, 68, 0.2);
-      border-color: #2a4;
+    #confirm-paint-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(42, 170, 68, 0.4);
+    }
+
+    #confirm-paint-btn:disabled {
+      background: #333;
+      border-color: #444;
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+
+    #step2-info {
+      font-size: 13px;
+      color: #888;
+    }
+
+    /* === STEP 3: VIEW SCREEN === */
+    #step3-screen {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    #step3-controls {
+      background: rgba(10, 14, 26, 0.98);
+      backdrop-filter: blur(20px);
+      padding: 20px;
+      border-top: 1px solid #2a3f5f;
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #step3-controls button {
+      padding: 14px 32px;
+      font-size: 15px;
+      border: 1px solid #2a3f5f;
+      background: rgba(26, 31, 46, 0.8);
+      color: #fff;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+
+    #step3-controls button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(42, 63, 95, 0.3);
+    }
+
+    #step3-controls button.primary {
+      background: linear-gradient(135deg, #2a4 0%, #1a3 100%);
+      border: 1px solid #3b5;
+    }
+
+    #step3-controls button.primary:hover {
+      box-shadow: 0 4px 16px rgba(42, 170, 68, 0.4);
+    }
+
+    /* === TOOLS OVERLAY MENU === */
+    #tools-menu-btn {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      width: 48px;
+      height: 48px;
+      background: rgba(26, 31, 46, 0.95);
+      backdrop-filter: blur(10px);
+      border: 1px solid #2a3f5f;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      transition: all 0.2s;
+      z-index: 100;
+    }
+
+    #tools-menu-btn:hover {
+      background: rgba(42, 63, 95, 0.95);
+      transform: scale(1.05);
+    }
+
+    #tools-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(10px);
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+
+    #tools-overlay.visible {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    #tools-panel {
+      background: rgba(26, 31, 46, 0.98);
+      border: 1px solid #2a3f5f;
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 500px;
+      width: 90vw;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    #tools-panel h2 {
+      font-size: 20px;
+      margin-bottom: 20px;
       color: #6FE6FF;
     }
 
-    #status.error {
-      background: rgba(255, 107, 107, 0.2);
-      border-color: #f44;
-      color: #ff6b6b;
+    .tool-section {
+      margin-bottom: 20px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #2a3f5f;
     }
 
-    /* Zoom indicator */
+    .tool-section:last-child {
+      border-bottom: none;
+    }
+
+    .tool-section h3 {
+      font-size: 14px;
+      color: #888;
+      margin-bottom: 10px;
+    }
+
+    .tool-section .content {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .tool-section button {
+      padding: 10px 16px;
+      font-size: 14px;
+      border: 1px solid #2a3f5f;
+      background: rgba(26, 31, 46, 0.8);
+      color: #fff;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tool-section button:hover {
+      background: rgba(42, 63, 95, 0.5);
+    }
+
+    .tool-section input {
+      padding: 8px 12px;
+      font-size: 13px;
+      border: 1px solid #2a3f5f;
+      background: rgba(26, 31, 46, 0.8);
+      color: #fff;
+      border-radius: 6px;
+      width: 80px;
+    }
+
+    .tool-section input:focus {
+      outline: none;
+      border-color: #6FE6FF;
+    }
+
+    .stat-display {
+      font-size: 14px;
+      color: #aaa;
+    }
+
+    #close-tools-btn {
+      width: 100%;
+      padding: 12px;
+      font-size: 14px;
+      background: rgba(42, 63, 95, 0.5);
+      border: 1px solid #2a3f5f;
+      color: #fff;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 16px;
+    }
+
+    #close-tools-btn:hover {
+      background: rgba(42, 63, 95, 0.7);
+    }
+
+    /* Minimap in overlay */
+    #minimap-container {
+      width: 200px;
+      height: 200px;
+      background: #0f1420;
+      border: 1px solid #2a3f5f;
+      border-radius: 6px;
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    #minimap-canvas {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Shared Elements */
     #zoom-info {
       position: absolute;
       top: 16px;
@@ -281,7 +450,6 @@
       border: 1px solid #2a3f5f;
     }
 
-    /* Coordinates tooltip */
     #coords-tooltip {
       position: absolute;
       bottom: 16px;
@@ -308,7 +476,6 @@
       margin-top: 4px;
     }
 
-    /* Magnifier */
     #magnifier {
       position: absolute;
       width: 150px;
@@ -326,178 +493,43 @@
       height: 100%;
     }
 
-    /* Magnifier toggle button */
-    .magnifier-btn {
-      background: rgba(111, 230, 255, 0.2) !important;
-      border: 1px solid #6FE6FF !important;
-      color: #6FE6FF !important;
-    }
-
-    .magnifier-btn.active {
-      background: rgba(111, 230, 255, 0.4) !important;
-    }
-
-    /* Minimap */
-    #minimap {
-      position: absolute;
-      bottom: 16px;
-      right: 16px;
-      width: 200px;
-      height: 200px;
-      background: rgba(10, 14, 26, 0.9);
-      backdrop-filter: blur(10px);
-      border: 1px solid #2a3f5f;
-      border-radius: 6px;
-      cursor: pointer;
-      overflow: hidden;
-    }
-
-    /* Navigation menu */
-    #nav-menu {
-      position: absolute;
-      top: 16px;
-      left: 16px;
-      background: rgba(10, 14, 26, 0.9);
-      backdrop-filter: blur(10px);
-      padding: 12px;
-      border-radius: 6px;
-      border: 1px solid #2a3f5f;
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-
-    #nav-menu input {
-      width: 60px;
-      padding: 6px 8px;
-      font-size: 12px;
-      margin: 0;
-    }
-
-    #nav-menu button {
-      padding: 6px 12px;
-      font-size: 12px;
-      margin: 0;
-    }
-
-    /* Copy code button */
-    .copy-btn {
-      background: rgba(111, 230, 255, 0.2) !important;
-      border: 1px solid #6FE6FF !important;
-      color: #6FE6FF !important;
-      padding: 8px 12px !important;
-      margin: 0 0 0 8px !important;
-    }
-
-    .copy-btn:hover {
-      background: rgba(111, 230, 255, 0.3) !important;
-    }
-
-    #minimap canvas {
-      width: 100%;
-      height: 100%;
-      border: none;
-      border-radius: 0;
-      box-shadow: none;
-    }
-
-    /* Helper text */
-    .helper {
-      font-size: 11px;
-      color: #888;
-      margin-top: 4px;
-    }
-
-    /* Loading indicator */
-    .loading {
-      display: inline-block;
-      width: 12px;
-      height: 12px;
-      border: 2px solid #444;
-      border-top-color: #6FE6FF;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin-left: 8px;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
+    .hidden {
+      display: none !important;
     }
 
     /* Mobile optimizations */
     @media (max-width: 768px) {
-      #top-bar {
-        padding: 8px 12px;
-        flex-wrap: wrap;
+      #step1-screen h1 {
+        font-size: 36px;
       }
 
-      #top-bar h1 {
+      #step1-screen .subtitle {
         font-size: 16px;
       }
 
-      #stats-display {
-        padding: 6px 12px;
-      }
-
-      #stats-text {
-        font-size: 11px;
-        min-width: 120px;
-      }
-
-      #progress-bar-container {
-        width: 120px;
-      }
-
-      #progress-percent {
-        font-size: 11px;
-      }
-
-      #controls {
-        padding: 12px 10px;
-      }
-
-      .row {
-        flex-wrap: wrap;
-        gap: 8px;
-      }
-
-      button, input {
-        font-size: 13px;
-        padding: 8px 12px;
+      #step1-screen input {
+        width: 280px;
+        font-size: 16px;
       }
 
       .color {
-        width: 35px;
-        height: 35px;
+        width: 38px;
+        height: 38px;
       }
 
-      #nav-menu {
-        top: 10px;
-        left: 10px;
-        padding: 8px;
-        font-size: 11px;
+      #tools-panel {
+        padding: 20px;
       }
 
-      #nav-menu input {
-        width: 50px;
-        padding: 4px 6px;
+      #tools-menu-btn {
+        width: 44px;
+        height: 44px;
+        font-size: 20px;
       }
 
-      #minimap {
-        width: 120px;
-        height: 120px;
-        bottom: 10px;
-        right: 10px;
-      }
-
-      #zoom-info {
-        top: 10px;
-        right: 10px;
-        font-size: 11px;
-      }
-
-      .helper {
-        font-size: 10px;
+      #minimap-container {
+        width: 150px;
+        height: 150px;
       }
 
       #magnifier {
@@ -507,75 +539,147 @@
     }
 
     @media (max-width: 480px) {
-      #minimap {
-        width: 80px;
-        height: 80px;
+      #step1-screen h1 {
+        font-size: 28px;
       }
 
-      #nav-menu {
-        flex-direction: column;
-        gap: 4px;
+      #step2-palette {
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .color {
+        width: 35px;
+        height: 35px;
       }
     }
   </style>
 </head>
 <body>
-  <div id="top-bar">
+  <!-- STEP 1: Code Input Screen -->
+  <div id="step1-screen">
     <h1>🎨 FRESQ V2</h1>
-    <div id="stats-display">
-      <span id="stats-text">- / 40,000 cases</span>
-      <div id="progress-bar-container">
-        <div id="progress-bar"></div>
+    <div class="subtitle">Fresque Collaborative</div>
+    <div class="explanation">
+      Bienvenue sur FRESQ, une fresque collaborative géante de 200×200 cases (40,000 pixels).
+      <br><br>
+      Chaque code unique te donne accès à une case que tu pourras peindre avec 10 couleurs disponibles.
+      Tu peux repeindre ta case autant de fois que tu veux !
+      <br><br>
+      Entre ton code pour commencer...
+    </div>
+    <div class="code-input-box">
+      <input type="text" id="code-input-step1" placeholder="ABC-12345" />
+      <button id="submit-code-btn">Valider</button>
+      <div id="step1-status" class="status-msg"></div>
+    </div>
+
+    <!-- My Cells Panel (shown when user has existing cells) -->
+    <div id="my-cells-panel" class="hidden">
+      <h3>📌 Mes cases peintes</h3>
+      <div id="my-cells-list"></div>
+    </div>
+  </div>
+
+  <!-- STEP 2: Cell Selection Screen -->
+  <div id="step2-screen" class="hidden">
+    <div id="canvas-container">
+      <canvas id="grid"></canvas>
+      <div id="zoom-info">Zoom: <span id="zoom-level">100%</span></div>
+      <div id="coords-tooltip">x: -, y: -</div>
+      <div id="magnifier">
+        <canvas id="magnifier-canvas"></canvas>
       </div>
-      <span id="progress-percent">0.0%</span>
     </div>
-    <div class="spacer"></div>
-    <div class="info-pill" id="poll-status">●</div>
-  </div>
-
-  <div id="canvas-container">
-    <canvas id="grid"></canvas>
-    <div id="observer-badge" class="observer-badge hidden">👁️ Mode Observateur</div>
-    <div id="nav-menu">
-      <span style="font-size: 11px; color: #888;">Aller à:</span>
-      <input type="number" id="nav-x" placeholder="X" min="0" max="199" />
-      <input type="number" id="nav-y" placeholder="Y" min="0" max="199" />
-      <button id="nav-go-btn" class="secondary">→</button>
-      <button id="magnifier-toggle-btn" class="secondary magnifier-btn">🔍</button>
-    </div>
-    <div id="zoom-info">Zoom: <span id="zoom-level">100%</span></div>
-    <div id="coords-tooltip">x: -, y: -</div>
-    <div id="magnifier">
-      <canvas id="magnifier-canvas"></canvas>
-    </div>
-    <div id="minimap">
-      <canvas id="minimap-canvas"></canvas>
+    <div id="step2-controls">
+      <div id="step2-info">Choisis ta case et une couleur, puis confirme</div>
+      <div id="step2-palette"></div>
+      <button id="confirm-paint-btn" disabled>🎨 Confirmer</button>
     </div>
   </div>
 
-  <div id="controls">
-    <div class="row" id="code-row">
-      <input id="code-input" placeholder="Entre ton code (ex: ABC-12345)" style="flex: 1; max-width: 300px;" />
-      <button id="validate-btn">✓ Valider le code</button>
-      <button id="copy-code-btn" class="copy-btn hidden">📋 Copier</button>
-      <button id="observer-btn" class="observer">👁️ Mode Observateur</button>
-      <div id="status">Attente d'un code...</div>
-      <div class="spacer"></div>
-      <button class="secondary" onclick="location.href='/admin.html'">⚙️ Admin</button>
+  <!-- STEP 3: View Screen -->
+  <div id="step3-screen" class="hidden">
+    <div id="canvas-container">
+      <canvas id="grid"></canvas>
+      <div id="zoom-info">Zoom: <span id="zoom-level">100%</span></div>
+      <div id="coords-tooltip">x: -, y: -</div>
+      <div id="magnifier">
+        <canvas id="magnifier-canvas"></canvas>
+      </div>
     </div>
-
-    <div class="row" id="paint-row">
-      <div style="font-size: 12px; color: #888; width: 100px;">Palette:</div>
-      <div id="palette"></div>
-      <button id="paint-btn" disabled>🎨 Peindre ma case</button>
-      <div class="spacer"></div>
-      <button class="secondary" id="center-btn" disabled>📍 Centrer</button>
-      <button class="secondary" id="reset-zoom-btn">🔍 Zoom 100%</button>
-      <button class="secondary" id="export-btn">💾 Export PNG</button>
+    <div id="step3-controls">
+      <button class="primary" id="repaint-btn">🎨 Repeindre ma case</button>
+      <button id="new-code-btn">➕ Nouveau code</button>
     </div>
+  </div>
 
-    <div class="helper">
-      💡 Molette = Zoom • Shift + Clic = Déplacer • Clic = Choisir une case • 1-9,0 = Couleurs • Espace = Peindre • Flèches = Déplacer
+  <!-- Tools Overlay Menu -->
+  <div id="tools-menu-btn" class="hidden" title="Outils">⚙️</div>
+
+  <div id="tools-overlay">
+    <div id="tools-panel">
+      <h2>🔧 Outils & Options</h2>
+
+      <div class="tool-section">
+        <h3>📊 STATISTIQUES</h3>
+        <div class="content">
+          <div class="stat-display" id="stats-display-overlay">
+            Cases peintes: <span id="stat-painted">-</span> / 40,000 (<span id="stat-percent">0.0%</span>)
+          </div>
+        </div>
+      </div>
+
+      <div class="tool-section">
+        <h3>🧭 NAVIGATION</h3>
+        <div class="content" style="flex-direction: row; gap: 8px; align-items: center;">
+          <span style="font-size: 12px; color: #888;">Aller à:</span>
+          <input type="number" id="nav-x-overlay" placeholder="X" min="0" max="199" />
+          <input type="number" id="nav-y-overlay" placeholder="Y" min="0" max="199" />
+          <button id="nav-go-overlay">→</button>
+        </div>
+      </div>
+
+      <div class="tool-section">
+        <h3>🗺️ MINIMAP</h3>
+        <div class="content">
+          <div id="minimap-container">
+            <canvas id="minimap-canvas"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="tool-section">
+        <h3>🔍 ZOOM</h3>
+        <div class="content" style="flex-direction: row; gap: 8px;">
+          <button id="zoom-in-overlay">➕ Zoom In</button>
+          <button id="zoom-out-overlay">➖ Zoom Out</button>
+          <button id="zoom-reset-overlay">🔄 Reset</button>
+        </div>
+      </div>
+
+      <div class="tool-section">
+        <h3>🔎 LOUPE</h3>
+        <div class="content">
+          <button id="magnifier-toggle-overlay">🔍 Activer la loupe</button>
+        </div>
+      </div>
+
+      <div class="tool-section">
+        <h3>👁️ OBSERVER</h3>
+        <div class="content">
+          <button id="observer-toggle-overlay">👁️ Mode Observateur</button>
+        </div>
+      </div>
+
+      <div class="tool-section">
+        <h3>💾 EXPORT</h3>
+        <div class="content">
+          <button id="export-png-overlay">💾 Télécharger PNG</button>
+        </div>
+      </div>
+
+      <button id="close-tools-btn">✕ Fermer</button>
     </div>
   </div>
 

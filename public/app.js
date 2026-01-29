@@ -1,47 +1,26 @@
-// FRESQ V2 - Client avec Zoom & Pan & UX améliorée
+// FRESQ V2 - Minimal Step-by-Step Interface
 
-const canvas = document.getElementById('grid');
-const ctx = canvas.getContext('2d');
-const codeInput = document.getElementById('code-input');
-const validateBtn = document.getElementById('validate-btn');
-const paintBtn = document.getElementById('paint-btn');
-const paletteEl = document.getElementById('palette');
-const statusEl = document.getElementById('status');
-const centerBtn = document.getElementById('center-btn');
-const resetZoomBtn = document.getElementById('reset-zoom-btn');
-const zoomLevelEl = document.getElementById('zoom-level');
-const pollStatusEl = document.getElementById('poll-status');
-const statsTextEl = document.getElementById('stats-text');
-const progressBarEl = document.getElementById('progress-bar');
-const progressPercentEl = document.getElementById('progress-percent');
-const observerBtn = document.getElementById('observer-btn');
-const observerBadge = document.getElementById('observer-badge');
-const codeRow = document.getElementById('code-row');
-const paintRow = document.getElementById('paint-row');
-const copyCodeBtn = document.getElementById('copy-code-btn');
-const navXInput = document.getElementById('nav-x');
-const navYInput = document.getElementById('nav-y');
-const navGoBtn = document.getElementById('nav-go-btn');
-const magnifierToggleBtn = document.getElementById('magnifier-toggle-btn');
-const magnifier = document.getElementById('magnifier');
-const magnifierCanvas = document.getElementById('magnifier-canvas');
-const magnifierCtx = magnifierCanvas.getContext('2d');
-const coordsTooltip = document.getElementById('coords-tooltip');
-const exportBtn = document.getElementById('export-btn');
-const minimapCanvas = document.getElementById('minimap-canvas');
-const minimapCtx = minimapCanvas.getContext('2d');
-
+// ===== GLOBAL STATE =====
 let gridW = 200;
 let gridH = 200;
 let palette = [];
 let cells = new Map();
-let cellTimestamps = new Map(); // Track when cells were last painted
+let cellTimestamps = new Map();
+
+// Multi-code support
+let userCodes = new Map(); // Map<code, {x, y, color}>
 let currentCode = null;
 let myCell = null;
+
+// UI state
+let currentStep = 1; // 1, 2, or 3
 let activeColor = 1;
 let isObserverMode = false;
 let magnifierActive = false;
 
+// Canvas & rendering
+const canvas = document.getElementById('grid');
+const ctx = canvas.getContext('2d');
 const CELL_SIZE = 3;
 
 // Zoom & Pan
@@ -51,8 +30,58 @@ let offsetY = 0;
 let isPanning = false;
 let panStart = { x: 0, y: 0 };
 
-// Animation for new cells
-let newCells = new Map(); // key -> timestamp
+// Animation
+let newCells = new Map();
+
+// WebSockets
+let socket = null;
+let isConnected = false;
+
+// ===== SCREENS =====
+const step1Screen = document.getElementById('step1-screen');
+const step2Screen = document.getElementById('step2-screen');
+const step3Screen = document.getElementById('step3-screen');
+const toolsMenuBtn = document.getElementById('tools-menu-btn');
+const toolsOverlay = document.getElementById('tools-overlay');
+
+// ===== STEP 1 ELEMENTS =====
+const codeInputStep1 = document.getElementById('code-input-step1');
+const submitCodeBtn = document.getElementById('submit-code-btn');
+const step1Status = document.getElementById('step1-status');
+const myCellsPanel = document.getElementById('my-cells-panel');
+const myCellsList = document.getElementById('my-cells-list');
+
+// ===== STEP 2 ELEMENTS =====
+const step2Palette = document.getElementById('step2-palette');
+const confirmPaintBtn = document.getElementById('confirm-paint-btn');
+const step2Info = document.getElementById('step2-info');
+
+// ===== STEP 3 ELEMENTS =====
+const repaintBtn = document.getElementById('repaint-btn');
+const newCodeBtn = document.getElementById('new-code-btn');
+
+// ===== TOOLS OVERLAY ELEMENTS =====
+const statPainted = document.getElementById('stat-painted');
+const statPercent = document.getElementById('stat-percent');
+const navXOverlay = document.getElementById('nav-x-overlay');
+const navYOverlay = document.getElementById('nav-y-overlay');
+const navGoOverlay = document.getElementById('nav-go-overlay');
+const minimapCanvas = document.getElementById('minimap-canvas');
+const minimapCtx = minimapCanvas.getContext('2d');
+const zoomInOverlay = document.getElementById('zoom-in-overlay');
+const zoomOutOverlay = document.getElementById('zoom-out-overlay');
+const zoomResetOverlay = document.getElementById('zoom-reset-overlay');
+const magnifierToggleOverlay = document.getElementById('magnifier-toggle-overlay');
+const observerToggleOverlay = document.getElementById('observer-toggle-overlay');
+const exportPngOverlay = document.getElementById('export-png-overlay');
+const closeToolsBtn = document.getElementById('close-tools-btn');
+
+// ===== SHARED ELEMENTS =====
+const zoomLevelEl = document.getElementById('zoom-level');
+const coordsTooltip = document.getElementById('coords-tooltip');
+const magnifier = document.getElementById('magnifier');
+const magnifierCanvas = document.getElementById('magnifier-canvas');
+const magnifierCtx = magnifierCanvas.getContext('2d');
 
 // ===== INIT =====
 async function init() {
@@ -63,174 +92,313 @@ async function init() {
     gridH = config.grid_h;
     palette = config.palette;
 
-    setupCanvas();
+    loadUserCodes();
+    await loadState();
     setupPalette();
-    setupZoomPan();
-    setupKeyboardShortcuts();
     setupMinimap();
-    loadState();
+    connectWebSocket();
+
+    // Show step 1 by default
+    showStep(1);
   } catch (err) {
-    setStatus('Erreur de chargement', 'error');
-    console.error(err);
+    console.error('Init error:', err);
+    showStep1Status('Erreur de chargement', 'error');
   }
 }
 
-function setupCanvas() {
-  resizeCanvas();
-  window.addEventListener('resize', resizeCanvas);
-  draw();
+// ===== LOCAL STORAGE FOR MULTI-CODE =====
+function loadUserCodes() {
+  const stored = localStorage.getItem('fresq_user_codes');
+  if (stored) {
+    try {
+      const data = JSON.parse(stored);
+      userCodes = new Map(Object.entries(data));
+      updateMyCellsPanel();
+    } catch (err) {
+      console.error('Error loading user codes:', err);
+    }
+  }
 }
 
-function resizeCanvas() {
-  const container = canvas.parentElement;
-  const rect = container.getBoundingClientRect();
-
-  canvas.width = rect.width - 4; // -4 for border
-  canvas.height = rect.height - 4;
-
-  // Centrer la grille
-  offsetX = (canvas.width - gridW * CELL_SIZE) / 2;
-  offsetY = (canvas.height - gridH * CELL_SIZE) / 2;
-
-  draw();
+function saveUserCodes() {
+  const data = Object.fromEntries(userCodes);
+  localStorage.setItem('fresq_user_codes', JSON.stringify(data));
+  updateMyCellsPanel();
 }
 
-function setupMinimap() {
-  minimapCanvas.width = 200;
-  minimapCanvas.height = 200;
+function updateMyCellsPanel() {
+  if (userCodes.size === 0) {
+    myCellsPanel.classList.add('hidden');
+    return;
+  }
 
-  // Click on minimap to jump to location
-  minimapCanvas.addEventListener('click', (e) => {
-    const rect = minimapCanvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;
-    const y = (e.clientY - rect.top) / rect.height;
+  myCellsPanel.classList.remove('hidden');
+  myCellsList.innerHTML = '';
 
-    // Convert to grid coordinates
-    const targetX = x * gridW * CELL_SIZE;
-    const targetY = y * gridH * CELL_SIZE;
+  userCodes.forEach((cell, code) => {
+    const div = document.createElement('div');
+    div.className = 'my-cell-item';
+    const colorHex = palette[cell.color - 1] || '#888';
+    div.innerHTML = `
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <div style="width: 16px; height: 16px; background: ${colorHex}; border-radius: 3px;"></div>
+        <span>(${cell.x}, ${cell.y})</span>
+      </div>
+    `;
+    myCellsList.appendChild(div);
+  });
+}
 
-    // Center on this point
-    offsetX = canvas.width / 2 - targetX * scale;
-    offsetY = canvas.height / 2 - targetY * scale;
+// ===== STEP NAVIGATION =====
+function showStep(step) {
+  currentStep = step;
 
+  step1Screen.classList.add('hidden');
+  step2Screen.classList.add('hidden');
+  step3Screen.classList.add('hidden');
+  toolsMenuBtn.classList.add('hidden');
+
+  if (step === 1) {
+    step1Screen.classList.remove('hidden');
+    updateMyCellsPanel();
+  } else if (step === 2) {
+    step2Screen.classList.remove('hidden');
+    toolsMenuBtn.classList.remove('hidden');
+    setupCanvas();
     draw();
-  });
+  } else if (step === 3) {
+    step3Screen.classList.remove('hidden');
+    toolsMenuBtn.classList.remove('hidden');
+    draw();
+  }
 }
 
-function drawMinimap() {
-  const minimapScale = Math.min(
-    minimapCanvas.width / (gridW * CELL_SIZE),
-    minimapCanvas.height / (gridH * CELL_SIZE)
-  );
-
-  minimapCtx.fillStyle = '#000';
-  minimapCtx.fillRect(0, 0, minimapCanvas.width, minimapCanvas.height);
-
-  // Draw cells on minimap
-  cells.forEach((color, key) => {
-    const [x, y] = key.split(',').map(Number);
-    minimapCtx.fillStyle = palette[color - 1];
-    minimapCtx.fillRect(
-      x * CELL_SIZE * minimapScale,
-      y * CELL_SIZE * minimapScale,
-      CELL_SIZE * minimapScale,
-      CELL_SIZE * minimapScale
-    );
-  });
-
-  // Draw viewport rectangle
-  const viewportX = -offsetX / scale * minimapScale;
-  const viewportY = -offsetY / scale * minimapScale;
-  const viewportW = (canvas.width / scale) * minimapScale;
-  const viewportH = (canvas.height / scale) * minimapScale;
-
-  minimapCtx.strokeStyle = '#6FE6FF';
-  minimapCtx.lineWidth = 2;
-  minimapCtx.strokeRect(viewportX, viewportY, viewportW, viewportH);
+function showStep1Status(msg, type = 'info') {
+  step1Status.textContent = msg;
+  step1Status.className = 'status-msg';
+  if (type === 'error') step1Status.classList.add('error');
+  if (type === 'success') step1Status.classList.add('success');
 }
 
+// ===== STEP 1: CODE INPUT =====
+submitCodeBtn.onclick = async () => {
+  const code = codeInputStep1.value.trim().toUpperCase();
+  if (!code) return;
+
+  try {
+    const res = await fetch('/api/code/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    });
+    const data = await res.json();
+
+    if (!data.ok) {
+      showStep1Status('Code invalide', 'error');
+      return;
+    }
+
+    currentCode = code;
+
+    if (data.assigned) {
+      // Code already has a cell assigned
+      myCell = { x: data.assigned.x, y: data.assigned.y };
+
+      // Check if cell is painted
+      const key = `${myCell.x},${myCell.y}`;
+      const color = cells.get(key);
+
+      if (color) {
+        // Cell is painted, save to user codes and go to step 3
+        userCodes.set(code, { x: myCell.x, y: myCell.y, color });
+        saveUserCodes();
+        showStep(3);
+      } else {
+        // Cell claimed but not painted, go to step 2
+        showStep(2);
+      }
+    } else {
+      // New code, no cell assigned yet - go to step 2
+      showStep(2);
+    }
+  } catch (err) {
+    showStep1Status('Erreur de validation', 'error');
+    console.error(err);
+  }
+};
+
+// Enter key to submit code
+codeInputStep1.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') submitCodeBtn.click();
+});
+
+// ===== STEP 2: CELL SELECTION =====
 function setupPalette() {
+  step2Palette.innerHTML = '';
   palette.forEach((color, i) => {
     const div = document.createElement('div');
     div.className = 'color';
     div.style.background = color;
     if (i === 0) div.classList.add('active');
     div.onclick = () => {
-      document.querySelectorAll('.color').forEach(d => d.classList.remove('active'));
+      document.querySelectorAll('#step2-palette .color').forEach(d => d.classList.remove('active'));
       div.classList.add('active');
       activeColor = i + 1;
+      updateConfirmButton();
     };
-    paletteEl.appendChild(div);
+    step2Palette.appendChild(div);
   });
 }
 
-function setupKeyboardShortcuts() {
-  document.addEventListener('keydown', (e) => {
-    // Ignore if typing in input
-    if (e.target.tagName === 'INPUT') return;
+function updateConfirmButton() {
+  confirmPaintBtn.disabled = !myCell || !activeColor;
+}
 
-    // Numbers 1-9 for color selection, 0 for 10th color
-    if (e.key >= '1' && e.key <= '9') {
-      const colorIndex = parseInt(e.key) - 1;
-      if (colorIndex < palette.length) {
-        activeColor = colorIndex + 1;
-        document.querySelectorAll('.color').forEach((el, i) => {
-          el.classList.toggle('active', i === colorIndex);
-        });
-        e.preventDefault();
-      }
-    } else if (e.key === '0' && palette.length >= 10) {
-      // 0 key selects the 10th color
-      activeColor = 10;
-      document.querySelectorAll('.color').forEach((el, i) => {
-        el.classList.toggle('active', i === 9);
-      });
-      e.preventDefault();
+confirmPaintBtn.onclick = async () => {
+  if (!currentCode || !myCell || !activeColor) return;
+
+  try {
+    const res = await fetch('/api/cell/paint', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: currentCode, color: activeColor })
+    });
+    const data = await res.json();
+
+    if (!data.ok) {
+      step2Info.textContent = 'Erreur de peinture';
+      step2Info.style.color = '#ff6b6b';
+      return;
     }
 
-    // Space to paint
-    if (e.key === ' ' && !paintBtn.disabled) {
-      paintBtn.click();
-      e.preventDefault();
+    const key = `${data.x},${data.y}`;
+    cells.set(key, data.color);
+    cellTimestamps.set(key, Date.now());
+    newCells.set(key, Date.now());
+
+    // Save to user codes
+    userCodes.set(currentCode, { x: data.x, y: data.y, color: data.color });
+    saveUserCodes();
+
+    updateCellsCount();
+    draw();
+
+    // Go to step 3
+    showStep(3);
+  } catch (err) {
+    step2Info.textContent = 'Erreur de peinture';
+    step2Info.style.color = '#ff6b6b';
+    console.error(err);
+  }
+};
+
+canvas.onclick = async (e) => {
+  if (currentStep !== 2 || isPanning || isObserverMode) return;
+
+  if (!currentCode) {
+    step2Info.textContent = 'Erreur: pas de code';
+    step2Info.style.color = '#ff6b6b';
+    return;
+  }
+
+  const rect = canvas.getBoundingClientRect();
+  const { x, y } = screenToGrid(e.clientX - rect.left, e.clientY - rect.top);
+
+  if (x < 0 || y < 0 || x >= gridW || y >= gridH) return;
+
+  // If already have a cell, can't claim another
+  if (myCell) {
+    step2Info.textContent = `Tu as déjà la case (${myCell.x}, ${myCell.y})`;
+    step2Info.style.color = '#888';
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/cell/claim', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: currentCode, x, y })
+    });
+    const data = await res.json();
+
+    if (!data.ok) {
+      step2Info.textContent = data.error === 'cell_taken' ? 'Case déjà prise' : 'Erreur';
+      step2Info.style.color = '#ff6b6b';
+      return;
     }
 
-    // Arrow keys to pan
-    const panSpeed = 50;
-    if (e.key === 'ArrowLeft') {
-      offsetX += panSpeed;
-      draw();
-      e.preventDefault();
-    } else if (e.key === 'ArrowRight') {
-      offsetX -= panSpeed;
-      draw();
-      e.preventDefault();
-    } else if (e.key === 'ArrowUp') {
-      offsetY += panSpeed;
-      draw();
-      e.preventDefault();
-    } else if (e.key === 'ArrowDown') {
-      offsetY -= panSpeed;
-      draw();
-      e.preventDefault();
-    }
-  });
+    myCell = { x, y };
+    step2Info.textContent = `Case (${x}, ${y}) sélectionnée - Choisis ta couleur`;
+    step2Info.style.color = '#6FE6FF';
+    updateConfirmButton();
+
+    // Center on claimed cell
+    offsetX = canvas.width / 2 - (myCell.x * CELL_SIZE + CELL_SIZE / 2) * scale;
+    offsetY = canvas.height / 2 - (myCell.y * CELL_SIZE + CELL_SIZE / 2) * scale;
+    draw();
+  } catch (err) {
+    step2Info.textContent = 'Erreur de sélection';
+    step2Info.style.color = '#ff6b6b';
+    console.error(err);
+  }
+};
+
+// ===== STEP 3: VIEW MODE =====
+repaintBtn.onclick = () => {
+  // Go back to step 2 to repaint
+  showStep(2);
+};
+
+newCodeBtn.onclick = () => {
+  // Reset current session and go back to step 1
+  currentCode = null;
+  myCell = null;
+  activeColor = 1;
+  codeInputStep1.value = '';
+  showStep(1);
+};
+
+// ===== CANVAS SETUP =====
+function setupCanvas() {
+  resizeCanvas();
+  window.removeEventListener('resize', resizeCanvas);
+  window.addEventListener('resize', resizeCanvas);
+  setupZoomPan();
+}
+
+function resizeCanvas() {
+  const container = canvas.parentElement;
+  const rect = container.getBoundingClientRect();
+
+  canvas.width = rect.width - 4;
+  canvas.height = rect.height - 4;
+
+  offsetX = (canvas.width - gridW * CELL_SIZE) / 2;
+  offsetY = (canvas.height - gridH * CELL_SIZE) / 2;
+
+  draw();
 }
 
 function setupZoomPan() {
-  // Touch support for mobile
+  // Remove existing listeners to avoid duplicates
+  const newCanvas = canvas.cloneNode(true);
+  canvas.parentNode.replaceChild(newCanvas, canvas);
+
+  // Reassign canvas reference
+  const canvasNew = document.getElementById('grid');
+  Object.assign(window, { canvas: canvasNew, ctx: canvasNew.getContext('2d') });
+
+  // Touch support
   let touchStartDist = 0;
   let touchStartScale = 1;
 
   canvas.addEventListener('touchstart', (e) => {
     if (e.touches.length === 1) {
-      // Single touch - pan
       isPanning = true;
       const touch = e.touches[0];
-      const rect = canvas.getBoundingClientRect();
       panStart = { x: touch.clientX - offsetX, y: touch.clientY - offsetY };
       e.preventDefault();
     } else if (e.touches.length === 2) {
-      // Two fingers - pinch to zoom
       const touch1 = e.touches[0];
       const touch2 = e.touches[1];
       touchStartDist = Math.hypot(
@@ -244,14 +412,12 @@ function setupZoomPan() {
 
   canvas.addEventListener('touchmove', (e) => {
     if (e.touches.length === 1 && isPanning) {
-      // Pan
       const touch = e.touches[0];
       offsetX = touch.clientX - panStart.x;
       offsetY = touch.clientY - panStart.y;
       draw();
       e.preventDefault();
     } else if (e.touches.length === 2) {
-      // Pinch zoom
       const touch1 = e.touches[0];
       const touch2 = e.touches[1];
       const currentDist = Math.hypot(
@@ -261,7 +427,6 @@ function setupZoomPan() {
 
       const newScale = Math.max(0.5, Math.min(10, touchStartScale * (currentDist / touchStartDist)));
 
-      // Center of pinch
       const centerX = (touch1.clientX + touch2.clientX) / 2;
       const centerY = (touch1.clientY + touch2.clientY) / 2;
       const rect = canvas.getBoundingClientRect();
@@ -278,12 +443,11 @@ function setupZoomPan() {
     }
   });
 
-  canvas.addEventListener('touchend', (e) => {
+  canvas.addEventListener('touchend', () => {
     isPanning = false;
-    e.preventDefault();
   });
 
-  // Zoom avec molette
+  // Mouse wheel zoom
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
 
@@ -305,7 +469,7 @@ function setupZoomPan() {
     draw();
   });
 
-  // Pan avec clic-drag
+  // Mouse drag pan
   canvas.addEventListener('mousedown', (e) => {
     if (e.button === 1 || e.button === 2 || e.shiftKey) {
       isPanning = true;
@@ -322,7 +486,7 @@ function setupZoomPan() {
       draw();
     }
 
-    // Update coordinates tooltip
+    // Tooltip
     const rect = canvas.getBoundingClientRect();
     const { x, y } = screenToGrid(e.clientX - rect.left, e.clientY - rect.top);
 
@@ -345,7 +509,6 @@ function setupZoomPan() {
       coordsTooltip.innerHTML = tooltipHTML;
       coordsTooltip.classList.add('visible');
 
-      // Update magnifier
       if (magnifierActive) {
         updateMagnifier(e.clientX, e.clientY, x, y);
       }
@@ -369,10 +532,10 @@ function setupZoomPan() {
     coordsTooltip.classList.remove('visible');
   });
 
-  // Désactiver menu contextuel
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 }
 
+// ===== RENDERING =====
 async function loadState() {
   try {
     const res = await fetch('/api/state');
@@ -385,20 +548,18 @@ async function loadState() {
     data.cells.forEach(cell => {
       const key = `${cell.x},${cell.y}`;
       cells.set(key, cell.color);
-      // Set timestamp to now for initial load (we don't have real timestamps from server)
       cellTimestamps.set(key, now);
     });
 
     updateCellsCount();
-    draw();
-    setStatus(`Grille chargée - ${data.cells.length} cases`, 'success');
   } catch (err) {
     console.error('Load state error:', err);
   }
 }
 
 function draw() {
-  // Clear
+  if (!ctx) return;
+
   ctx.fillStyle = '#0a0e1a';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -411,7 +572,6 @@ function draw() {
     for (let x = 0; x < gridW; x++) {
       const key = `${x},${y}`;
       if (!cells.has(key)) {
-        // Empty cell - draw gray
         ctx.fillStyle = '#1a1a1a';
         ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
       }
@@ -436,7 +596,7 @@ function draw() {
     }
   }
 
-  // Cells with animation
+  // Painted cells
   const now = Date.now();
   cells.forEach((color, key) => {
     const [x, y] = key.split(',').map(Number);
@@ -448,7 +608,6 @@ function draw() {
     if (newCellTime) {
       const age = now - newCellTime;
       if (age < 1000) {
-        // Pulse effect for 1 second
         const pulse = Math.sin((age / 1000) * Math.PI * 4) * 0.3 + 0.7;
         ctx.save();
         ctx.globalAlpha = pulse;
@@ -456,17 +615,14 @@ function draw() {
         ctx.lineWidth = 2 / scale;
         ctx.strokeRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
         ctx.restore();
-
-        // Continue animating
         requestAnimationFrame(() => draw());
       } else {
-        // Remove from animation list
         newCells.delete(key);
       }
     }
   });
 
-  // My cell highlight
+  // Highlight my cell
   if (myCell) {
     ctx.strokeStyle = '#fff';
     ctx.lineWidth = 2 / scale;
@@ -480,7 +636,6 @@ function draw() {
 
   ctx.restore();
 
-  // Update minimap
   drawMinimap();
 }
 
@@ -492,64 +647,91 @@ function screenToGrid(screenX, screenY) {
   return { x: gridX, y: gridY };
 }
 
-// ===== OBSERVER MODE =====
-observerBtn.onclick = () => {
-  isObserverMode = !isObserverMode;
+function updateZoomIndicator() {
+  zoomLevelEl.textContent = Math.round(scale * 100) + '%';
+}
 
-  if (isObserverMode) {
-    // Enter observer mode
-    observerBadge.classList.remove('hidden');
-    codeInput.disabled = true;
-    validateBtn.disabled = true;
-    paintRow.style.opacity = '0.3';
-    paintRow.style.pointerEvents = 'none';
-    setStatus('Mode observateur activé - Vue seule', 'success');
-  } else {
-    // Exit observer mode
-    observerBadge.classList.add('hidden');
-    codeInput.disabled = false;
-    validateBtn.disabled = false;
-    paintRow.style.opacity = '1';
-    paintRow.style.pointerEvents = 'auto';
-    setStatus('Mode observateur désactivé', 'info');
-  }
-};
+function updateCellsCount() {
+  const total = gridW * gridH;
+  const painted = cells.size;
+  const percent = ((painted / total) * 100).toFixed(1);
+
+  statPainted.textContent = painted.toLocaleString('fr-FR');
+  statPercent.textContent = `${percent}%`;
+}
+
+// ===== MINIMAP =====
+function setupMinimap() {
+  minimapCanvas.width = 200;
+  minimapCanvas.height = 200;
+
+  minimapCanvas.addEventListener('click', (e) => {
+    const rect = minimapCanvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+
+    const targetX = x * gridW * CELL_SIZE;
+    const targetY = y * gridH * CELL_SIZE;
+
+    offsetX = canvas.width / 2 - targetX * scale;
+    offsetY = canvas.height / 2 - targetY * scale;
+
+    draw();
+  });
+}
+
+function drawMinimap() {
+  if (!minimapCtx) return;
+
+  const minimapScale = Math.min(
+    minimapCanvas.width / (gridW * CELL_SIZE),
+    minimapCanvas.height / (gridH * CELL_SIZE)
+  );
+
+  minimapCtx.fillStyle = '#000';
+  minimapCtx.fillRect(0, 0, minimapCanvas.width, minimapCanvas.height);
+
+  cells.forEach((color, key) => {
+    const [x, y] = key.split(',').map(Number);
+    minimapCtx.fillStyle = palette[color - 1];
+    minimapCtx.fillRect(
+      x * CELL_SIZE * minimapScale,
+      y * CELL_SIZE * minimapScale,
+      CELL_SIZE * minimapScale,
+      CELL_SIZE * minimapScale
+    );
+  });
+
+  // Viewport rectangle
+  const viewportX = -offsetX / scale * minimapScale;
+  const viewportY = -offsetY / scale * minimapScale;
+  const viewportW = (canvas.width / scale) * minimapScale;
+  const viewportH = (canvas.height / scale) * minimapScale;
+
+  minimapCtx.strokeStyle = '#6FE6FF';
+  minimapCtx.lineWidth = 2;
+  minimapCtx.strokeRect(viewportX, viewportY, viewportW, viewportH);
+}
 
 // ===== MAGNIFIER =====
-magnifierToggleBtn.onclick = () => {
-  magnifierActive = !magnifierActive;
-  if (magnifierActive) {
-    magnifierToggleBtn.classList.add('active');
-    magnifier.style.display = 'block';
-  } else {
-    magnifierToggleBtn.classList.remove('active');
-    magnifier.style.display = 'none';
-  }
-};
-
 function updateMagnifier(mouseX, mouseY, gridX, gridY) {
   const magnifierSize = 150;
-  const magnifierZoom = 10; // 10x zoom
 
-  // Position magnifier near mouse
   magnifier.style.left = (mouseX + 20) + 'px';
   magnifier.style.top = (mouseY + 20) + 'px';
 
-  // Draw magnified view
   magnifierCanvas.width = magnifierSize;
   magnifierCanvas.height = magnifierSize;
 
   magnifierCtx.fillStyle = '#0a0e1a';
   magnifierCtx.fillRect(0, 0, magnifierSize, magnifierSize);
 
-  const centerX = gridX;
-  const centerY = gridY;
-  const radius = 3; // Show 7x7 cells
+  const radius = 3;
 
   for (let dy = -radius; dy <= radius; dy++) {
     for (let dx = -radius; dx <= radius; dx++) {
-      const cx = centerX + dx;
-      const cy = centerY + dy;
+      const cx = gridX + dx;
+      const cy = gridY + dy;
 
       if (cx >= 0 && cx < gridW && cy >= 0 && cy < gridH) {
         const key = `${cx},${cy}`;
@@ -567,12 +749,10 @@ function updateMagnifier(mouseX, mouseY, gridX, gridY) {
 
         magnifierCtx.fillRect(px, py, cellSize, cellSize);
 
-        // Grid lines
         magnifierCtx.strokeStyle = '#444';
         magnifierCtx.lineWidth = 1;
         magnifierCtx.strokeRect(px, py, cellSize, cellSize);
 
-        // Highlight center cell
         if (dx === 0 && dy === 0) {
           magnifierCtx.strokeStyle = '#6FE6FF';
           magnifierCtx.lineWidth = 2;
@@ -583,152 +763,50 @@ function updateMagnifier(mouseX, mouseY, gridX, gridY) {
   }
 }
 
-// ===== NAVIGATION =====
-navGoBtn.onclick = () => {
-  const x = parseInt(navXInput.value);
-  const y = parseInt(navYInput.value);
+// ===== TOOLS OVERLAY =====
+toolsMenuBtn.onclick = () => {
+  toolsOverlay.classList.add('visible');
+};
+
+closeToolsBtn.onclick = () => {
+  toolsOverlay.classList.remove('visible');
+};
+
+toolsOverlay.onclick = (e) => {
+  if (e.target === toolsOverlay) {
+    toolsOverlay.classList.remove('visible');
+  }
+};
+
+// Navigation
+navGoOverlay.onclick = () => {
+  const x = parseInt(navXOverlay.value);
+  const y = parseInt(navYOverlay.value);
 
   if (isNaN(x) || isNaN(y) || x < 0 || x >= gridW || y < 0 || y >= gridH) {
-    setStatus('Coordonnées invalides', 'error');
     return;
   }
 
-  // Center on coordinates
   offsetX = canvas.width / 2 - (x * CELL_SIZE + CELL_SIZE / 2) * scale;
   offsetY = canvas.height / 2 - (y * CELL_SIZE + CELL_SIZE / 2) * scale;
   draw();
-  setStatus(`Navigation vers (${x}, ${y})`, 'success');
+  toolsOverlay.classList.remove('visible');
 };
 
-// Copy code button
-copyCodeBtn.onclick = () => {
-  if (!currentCode) return;
-
-  navigator.clipboard.writeText(currentCode).then(() => {
-    setStatus('Code copié dans le presse-papiers', 'success');
-  }).catch(() => {
-    setStatus('Erreur lors de la copie', 'error');
-  });
-};
-
-// ===== EVENTS =====
-validateBtn.onclick = async () => {
-  const code = codeInput.value.trim().toUpperCase();
-  if (!code) return;
-
-  try {
-    const res = await fetch('/api/code/validate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code })
-    });
-    const data = await res.json();
-
-    if (!data.ok) {
-      setStatus('Code invalide', 'error');
-      copyCodeBtn.classList.add('hidden');
-      return;
-    }
-
-    currentCode = code;
-    copyCodeBtn.classList.remove('hidden');
-
-    if (data.assigned) {
-      myCell = { x: data.assigned.x, y: data.assigned.y };
-      setStatus(`Code validé - Case (${myCell.x}, ${myCell.y})`, 'success');
-      paintBtn.disabled = false;
-      centerBtn.disabled = false;
-
-      // Centrer sur ma case
-      offsetX = canvas.width / 2 - (myCell.x * CELL_SIZE + CELL_SIZE / 2) * scale;
-      offsetY = canvas.height / 2 - (myCell.y * CELL_SIZE + CELL_SIZE / 2) * scale;
-    } else {
-      setStatus('Code validé - Clique sur une case', 'success');
-      paintBtn.disabled = true;
-    }
-
-    draw();
-  } catch (err) {
-    setStatus('Erreur de validation', 'error');
-    console.error(err);
-  }
-};
-
-canvas.onclick = async (e) => {
-  if (isPanning || isObserverMode) return;
-
-  if (!currentCode) {
-    setStatus('Entre un code d\'abord', 'error');
-    return;
-  }
-
-  const rect = canvas.getBoundingClientRect();
-  const { x, y } = screenToGrid(e.clientX - rect.left, e.clientY - rect.top);
-
-  if (x < 0 || y < 0 || x >= gridW || y >= gridH) return;
-
-  try {
-    const res = await fetch('/api/cell/claim', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: currentCode, x, y })
-    });
-    const data = await res.json();
-
-    if (!data.ok) {
-      setStatus(data.error === 'cell_taken' ? 'Case déjà prise' : 'Erreur', 'error');
-      return;
-    }
-
-    myCell = { x, y };
-    setStatus(`Case (${x}, ${y}) réclamée`, 'success');
-    paintBtn.disabled = false;
-    centerBtn.disabled = false;
-    draw();
-  } catch (err) {
-    setStatus('Erreur de claim', 'error');
-    console.error(err);
-  }
-};
-
-paintBtn.onclick = async () => {
-  if (!currentCode || !myCell) return;
-
-  try {
-    const res = await fetch('/api/cell/paint', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: currentCode, color: activeColor })
-    });
-    const data = await res.json();
-
-    if (!data.ok) {
-      setStatus('Erreur de peinture', 'error');
-      return;
-    }
-
-    const key = `${data.x},${data.y}`;
-    cells.set(key, data.color);
-    newCells.set(key, Date.now()); // Mark as new for animation
-    setStatus(`Case peinte en ${palette[data.color - 1]}`, 'success');
-    updateCellsCount();
-    draw();
-  } catch (err) {
-    setStatus('Erreur de peinture', 'error');
-    console.error(err);
-  }
-};
-
-// ===== BOUTONS UTILITAIRES =====
-centerBtn.onclick = () => {
-  if (!myCell) return;
-
-  offsetX = canvas.width / 2 - (myCell.x * CELL_SIZE + CELL_SIZE / 2) * scale;
-  offsetY = canvas.height / 2 - (myCell.y * CELL_SIZE + CELL_SIZE / 2) * scale;
+// Zoom
+zoomInOverlay.onclick = () => {
+  scale = Math.min(10, scale * 1.2);
+  updateZoomIndicator();
   draw();
 };
 
-resetZoomBtn.onclick = () => {
+zoomOutOverlay.onclick = () => {
+  scale = Math.max(0.5, scale / 1.2);
+  updateZoomIndicator();
+  draw();
+};
+
+zoomResetOverlay.onclick = () => {
   scale = 1;
   offsetX = (canvas.width - gridW * CELL_SIZE) / 2;
   offsetY = (canvas.height - gridH * CELL_SIZE) / 2;
@@ -736,25 +814,44 @@ resetZoomBtn.onclick = () => {
   draw();
 };
 
-exportBtn.onclick = () => {
-  // Create an offscreen canvas at original size
+// Magnifier
+magnifierToggleOverlay.onclick = () => {
+  magnifierActive = !magnifierActive;
+  if (magnifierActive) {
+    magnifier.style.display = 'block';
+    magnifierToggleOverlay.textContent = '🔍 Désactiver la loupe';
+  } else {
+    magnifier.style.display = 'none';
+    magnifierToggleOverlay.textContent = '🔍 Activer la loupe';
+  }
+};
+
+// Observer mode
+observerToggleOverlay.onclick = () => {
+  isObserverMode = !isObserverMode;
+  if (isObserverMode) {
+    observerToggleOverlay.textContent = '👁️ Quitter Observateur';
+  } else {
+    observerToggleOverlay.textContent = '👁️ Mode Observateur';
+  }
+};
+
+// Export
+exportPngOverlay.onclick = () => {
   const exportCanvas = document.createElement('canvas');
   exportCanvas.width = gridW * CELL_SIZE;
   exportCanvas.height = gridH * CELL_SIZE;
   const exportCtx = exportCanvas.getContext('2d');
 
-  // Draw background
   exportCtx.fillStyle = '#000';
   exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
 
-  // Draw all cells
   cells.forEach((color, key) => {
     const [x, y] = key.split(',').map(Number);
     exportCtx.fillStyle = palette[color - 1];
     exportCtx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
   });
 
-  // Download as PNG
   exportCanvas.toBlob((blob) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -762,59 +859,23 @@ exportBtn.onclick = () => {
     a.download = `fresq_${Date.now()}.png`;
     a.click();
     URL.revokeObjectURL(url);
-    setStatus('Image exportée !', 'success');
   });
+
+  toolsOverlay.classList.remove('visible');
 };
 
-function updateZoomIndicator() {
-  zoomLevelEl.textContent = Math.round(scale * 100) + '%';
-}
-
-function updateCellsCount() {
-  const total = gridW * gridH; // 40,000
-  const painted = cells.size;
-  const percent = ((painted / total) * 100).toFixed(1);
-
-  statsTextEl.textContent = `${painted.toLocaleString('fr-FR')} / ${total.toLocaleString('fr-FR')} cases`;
-  progressBarEl.style.width = `${percent}%`;
-  progressPercentEl.textContent = `${percent}%`;
-}
-
-function setStatus(message, type = 'info') {
-  statusEl.textContent = message;
-  statusEl.className = '';
-  if (type === 'success') statusEl.classList.add('success');
-  if (type === 'error') statusEl.classList.add('error');
-}
-
-// ===== WEBSOCKETS TEMPS RÉEL =====
-let socket = null;
-let pollingInterval = null;
-let isConnected = false;
-
+// ===== WEBSOCKETS =====
 function connectWebSocket() {
   socket = io();
 
   socket.on('connect', () => {
     console.log('🔌 WebSocket connected');
     isConnected = true;
-    pollStatusEl.style.color = '#2a4';
-    pollStatusEl.textContent = '● Live';
-    pollStatusEl.title = 'WebSocket connecté';
-
-    // Stop polling when WebSocket is connected
-    stopPolling();
   });
 
   socket.on('disconnect', () => {
     console.log('🔌 WebSocket disconnected');
     isConnected = false;
-    pollStatusEl.style.color = '#f80';
-    pollStatusEl.textContent = '● Polling';
-    pollStatusEl.title = 'Fallback polling actif';
-
-    // Start polling as fallback
-    startPolling();
   });
 
   socket.on('cell:painted', (data) => {
@@ -827,65 +888,14 @@ function connectWebSocket() {
     updateCellsCount();
   });
 
-  socket.on('cell:claimed', (data) => {
-    // Just trigger a refresh for now
-    console.log('Cell claimed:', data);
-  });
-
   socket.on('cell:deleted', (data) => {
     const key = `${data.x},${data.y}`;
     cells.delete(key);
+    cellTimestamps.delete(key);
     draw();
     updateCellsCount();
   });
 }
 
-async function pollUpdates() {
-  try {
-    const res = await fetch('/api/state');
-    const data = await res.json();
-
-    let hasChanges = false;
-
-    // Comparer et mettre à jour les cellules
-    data.cells.forEach(cell => {
-      const key = `${cell.x},${cell.y}`;
-      const currentColor = cells.get(key);
-
-      if (currentColor !== cell.color) {
-        cells.set(key, cell.color);
-        newCells.set(key, Date.now());
-        hasChanges = true;
-      }
-    });
-
-    if (hasChanges) {
-      draw();
-      updateCellsCount();
-    }
-
-    pollStatusEl.style.color = '#f80';
-  } catch (err) {
-    console.error('Poll error:', err);
-    pollStatusEl.style.color = '#f44';
-  }
-}
-
-function startPolling() {
-  if (!pollingInterval) {
-    pollingInterval = setInterval(pollUpdates, 5000);
-    console.log('✅ Fallback polling activé (5s)');
-  }
-}
-
-function stopPolling() {
-  if (pollingInterval) {
-    clearInterval(pollingInterval);
-    pollingInterval = null;
-    console.log('⏸️ Polling désactivé');
-  }
-}
-
 // ===== START =====
 init();
-connectWebSocket();

@@ -18,6 +18,14 @@ const observerBtn = document.getElementById('observer-btn');
 const observerBadge = document.getElementById('observer-badge');
 const codeRow = document.getElementById('code-row');
 const paintRow = document.getElementById('paint-row');
+const copyCodeBtn = document.getElementById('copy-code-btn');
+const navXInput = document.getElementById('nav-x');
+const navYInput = document.getElementById('nav-y');
+const navGoBtn = document.getElementById('nav-go-btn');
+const magnifierToggleBtn = document.getElementById('magnifier-toggle-btn');
+const magnifier = document.getElementById('magnifier');
+const magnifierCanvas = document.getElementById('magnifier-canvas');
+const magnifierCtx = magnifierCanvas.getContext('2d');
 const coordsTooltip = document.getElementById('coords-tooltip');
 const exportBtn = document.getElementById('export-btn');
 const minimapCanvas = document.getElementById('minimap-canvas');
@@ -27,10 +35,12 @@ let gridW = 200;
 let gridH = 200;
 let palette = [];
 let cells = new Map();
+let cellTimestamps = new Map(); // Track when cells were last painted
 let currentCode = null;
 let myCell = null;
 let activeColor = 1;
 let isObserverMode = false;
+let magnifierActive = false;
 
 const CELL_SIZE = 3;
 
@@ -207,6 +217,72 @@ function setupKeyboardShortcuts() {
 }
 
 function setupZoomPan() {
+  // Touch support for mobile
+  let touchStartDist = 0;
+  let touchStartScale = 1;
+
+  canvas.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1) {
+      // Single touch - pan
+      isPanning = true;
+      const touch = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      panStart = { x: touch.clientX - offsetX, y: touch.clientY - offsetY };
+      e.preventDefault();
+    } else if (e.touches.length === 2) {
+      // Two fingers - pinch to zoom
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      touchStartDist = Math.hypot(
+        touch2.clientX - touch1.clientX,
+        touch2.clientY - touch1.clientY
+      );
+      touchStartScale = scale;
+      e.preventDefault();
+    }
+  });
+
+  canvas.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 1 && isPanning) {
+      // Pan
+      const touch = e.touches[0];
+      offsetX = touch.clientX - panStart.x;
+      offsetY = touch.clientY - panStart.y;
+      draw();
+      e.preventDefault();
+    } else if (e.touches.length === 2) {
+      // Pinch zoom
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const currentDist = Math.hypot(
+        touch2.clientX - touch1.clientX,
+        touch2.clientY - touch1.clientY
+      );
+
+      const newScale = Math.max(0.5, Math.min(10, touchStartScale * (currentDist / touchStartDist)));
+
+      // Center of pinch
+      const centerX = (touch1.clientX + touch2.clientX) / 2;
+      const centerY = (touch1.clientY + touch2.clientY) / 2;
+      const rect = canvas.getBoundingClientRect();
+      const worldX = (centerX - rect.left - offsetX) / scale;
+      const worldY = (centerY - rect.top - offsetY) / scale;
+
+      offsetX = centerX - rect.left - worldX * newScale;
+      offsetY = centerY - rect.top - worldY * newScale;
+      scale = newScale;
+
+      updateZoomIndicator();
+      draw();
+      e.preventDefault();
+    }
+  });
+
+  canvas.addEventListener('touchend', (e) => {
+    isPanning = false;
+    e.preventDefault();
+  });
+
   // Zoom avec molette
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
@@ -251,8 +327,28 @@ function setupZoomPan() {
     const { x, y } = screenToGrid(e.clientX - rect.left, e.clientY - rect.top);
 
     if (x >= 0 && y >= 0 && x < gridW && y < gridH) {
-      coordsTooltip.textContent = `x: ${x}, y: ${y}`;
+      const key = `${x},${y}`;
+      const hasPaint = cells.has(key);
+      const timestamp = cellTimestamps.get(key);
+
+      let tooltipHTML = `x: ${x}, y: ${y}`;
+
+      if (hasPaint && timestamp) {
+        const minutesAgo = Math.floor((Date.now() - timestamp) / 60000);
+        const timeStr = minutesAgo < 1 ? 'à l\'instant' :
+                        minutesAgo === 1 ? 'il y a 1 min' :
+                        minutesAgo < 60 ? `il y a ${minutesAgo} min` :
+                        `il y a ${Math.floor(minutesAgo / 60)}h`;
+        tooltipHTML += `<div class="time">Peint ${timeStr}</div>`;
+      }
+
+      coordsTooltip.innerHTML = tooltipHTML;
       coordsTooltip.classList.add('visible');
+
+      // Update magnifier
+      if (magnifierActive) {
+        updateMagnifier(e.clientX, e.clientY, x, y);
+      }
     } else {
       coordsTooltip.classList.remove('visible');
     }
@@ -283,8 +379,14 @@ async function loadState() {
     const data = await res.json();
 
     cells.clear();
+    cellTimestamps.clear();
+    const now = Date.now();
+
     data.cells.forEach(cell => {
-      cells.set(`${cell.x},${cell.y}`, cell.color);
+      const key = `${cell.x},${cell.y}`;
+      cells.set(key, cell.color);
+      // Set timestamp to now for initial load (we don't have real timestamps from server)
+      cellTimestamps.set(key, now);
     });
 
     updateCellsCount();
@@ -304,9 +406,17 @@ function draw() {
   ctx.translate(offsetX, offsetY);
   ctx.scale(scale, scale);
 
-  // Background grid
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, gridW * CELL_SIZE, gridH * CELL_SIZE);
+  // Background grid with gray for empty cells
+  for (let y = 0; y < gridH; y++) {
+    for (let x = 0; x < gridW; x++) {
+      const key = `${x},${y}`;
+      if (!cells.has(key)) {
+        // Empty cell - draw gray
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+      }
+    }
+  }
 
   // Grid lines
   if (scale > 0.8) {
@@ -384,17 +494,121 @@ function screenToGrid(screenX, screenY) {
 
 // ===== OBSERVER MODE =====
 observerBtn.onclick = () => {
-  isObserverMode = true;
-  observerBadge.classList.remove('hidden');
+  isObserverMode = !isObserverMode;
 
-  // Hide code input and paint controls
-  codeInput.disabled = true;
-  validateBtn.disabled = true;
-  observerBtn.disabled = true;
-  paintRow.style.opacity = '0.3';
-  paintRow.style.pointerEvents = 'none';
+  if (isObserverMode) {
+    // Enter observer mode
+    observerBadge.classList.remove('hidden');
+    codeInput.disabled = true;
+    validateBtn.disabled = true;
+    paintRow.style.opacity = '0.3';
+    paintRow.style.pointerEvents = 'none';
+    setStatus('Mode observateur activé - Vue seule', 'success');
+  } else {
+    // Exit observer mode
+    observerBadge.classList.add('hidden');
+    codeInput.disabled = false;
+    validateBtn.disabled = false;
+    paintRow.style.opacity = '1';
+    paintRow.style.pointerEvents = 'auto';
+    setStatus('Mode observateur désactivé', 'info');
+  }
+};
 
-  setStatus('Mode observateur activé - Vue seule', 'success');
+// ===== MAGNIFIER =====
+magnifierToggleBtn.onclick = () => {
+  magnifierActive = !magnifierActive;
+  if (magnifierActive) {
+    magnifierToggleBtn.classList.add('active');
+    magnifier.style.display = 'block';
+  } else {
+    magnifierToggleBtn.classList.remove('active');
+    magnifier.style.display = 'none';
+  }
+};
+
+function updateMagnifier(mouseX, mouseY, gridX, gridY) {
+  const magnifierSize = 150;
+  const magnifierZoom = 10; // 10x zoom
+
+  // Position magnifier near mouse
+  magnifier.style.left = (mouseX + 20) + 'px';
+  magnifier.style.top = (mouseY + 20) + 'px';
+
+  // Draw magnified view
+  magnifierCanvas.width = magnifierSize;
+  magnifierCanvas.height = magnifierSize;
+
+  magnifierCtx.fillStyle = '#0a0e1a';
+  magnifierCtx.fillRect(0, 0, magnifierSize, magnifierSize);
+
+  const centerX = gridX;
+  const centerY = gridY;
+  const radius = 3; // Show 7x7 cells
+
+  for (let dy = -radius; dy <= radius; dy++) {
+    for (let dx = -radius; dx <= radius; dx++) {
+      const cx = centerX + dx;
+      const cy = centerY + dy;
+
+      if (cx >= 0 && cx < gridW && cy >= 0 && cy < gridH) {
+        const key = `${cx},${cy}`;
+        const color = cells.get(key);
+
+        const cellSize = magnifierSize / (radius * 2 + 1);
+        const px = (dx + radius) * cellSize;
+        const py = (dy + radius) * cellSize;
+
+        if (color) {
+          magnifierCtx.fillStyle = palette[color - 1];
+        } else {
+          magnifierCtx.fillStyle = '#1a1a1a';
+        }
+
+        magnifierCtx.fillRect(px, py, cellSize, cellSize);
+
+        // Grid lines
+        magnifierCtx.strokeStyle = '#444';
+        magnifierCtx.lineWidth = 1;
+        magnifierCtx.strokeRect(px, py, cellSize, cellSize);
+
+        // Highlight center cell
+        if (dx === 0 && dy === 0) {
+          magnifierCtx.strokeStyle = '#6FE6FF';
+          magnifierCtx.lineWidth = 2;
+          magnifierCtx.strokeRect(px, py, cellSize, cellSize);
+        }
+      }
+    }
+  }
+}
+
+// ===== NAVIGATION =====
+navGoBtn.onclick = () => {
+  const x = parseInt(navXInput.value);
+  const y = parseInt(navYInput.value);
+
+  if (isNaN(x) || isNaN(y) || x < 0 || x >= gridW || y < 0 || y >= gridH) {
+    setStatus('Coordonnées invalides', 'error');
+    return;
+  }
+
+  // Center on coordinates
+  offsetX = canvas.width / 2 - (x * CELL_SIZE + CELL_SIZE / 2) * scale;
+  offsetY = canvas.height / 2 - (y * CELL_SIZE + CELL_SIZE / 2) * scale;
+  draw();
+  setStatus(`Navigation vers (${x}, ${y})`, 'success');
+};
+
+// Copy code button
+copyCodeBtn.onclick = () => {
+  if (!currentCode) return;
+
+  navigator.clipboard.writeText(currentCode).then(() => {
+    setStatus('Code copié dans le presse-papiers', 'success');
+  }).catch(() => {
+    setStatus('Erreur lors de la copie', 'error');
+  });
 };
 
 // ===== EVENTS =====
@@ -412,10 +626,12 @@ validateBtn.onclick = async () => {
 
     if (!data.ok) {
       setStatus('Code invalide', 'error');
+      copyCodeBtn.classList.add('hidden');
       return;
     }
 
     currentCode = code;
+    copyCodeBtn.classList.remove('hidden');
 
     if (data.assigned) {
       myCell = { x: data.assigned.x, y: data.assigned.y };
@@ -603,8 +819,10 @@ function connectWebSocket() {
 
   socket.on('cell:painted', (data) => {
     const key = `${data.x},${data.y}`;
+    const now = Date.now();
     cells.set(key, data.color);
-    newCells.set(key, Date.now());
+    cellTimestamps.set(key, now);
+    newCells.set(key, now);
     draw();
     updateCellsCount();
   });

@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: fresq-v2
+    runtime: node
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 18
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_SSL
+        value: true
+      - key: ADMIN_TOKEN_TTL_HOURS
+        value: 24
+      - key: LOCK_TTL_SECONDS
+        value: 120
+      - key: RATE_LIMIT_WINDOW_MS
+        value: 10000
+      - key: RATE_LIMIT_MAX
+        value: 10

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FRESQ V2 - Admin</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0e1a;
+      color: #fff;
+      font-family: system-ui, -apple-system, sans-serif;
+      padding: 20px;
+    }
+    h1 { margin-bottom: 20px; }
+    .section {
+      background: #1a1f2e;
+      padding: 20px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+    }
+    input, button, select {
+      padding: 10px;
+      margin: 5px;
+      border: 1px solid #444;
+      background: #0f1420;
+      color: #fff;
+      border-radius: 4px;
+    }
+    button {
+      background: #2a4;
+      cursor: pointer;
+    }
+    button:hover { background: #3b5; }
+    #codes-list {
+      max-height: 400px;
+      overflow-y: auto;
+      background: #0f1420;
+      padding: 10px;
+      border-radius: 4px;
+    }
+    .code-item {
+      padding: 8px;
+      border-bottom: 1px solid #333;
+      font-family: monospace;
+    }
+    #login-form { max-width: 400px; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div id="login-form">
+    <h1>FRESQ Admin - Login</h1>
+    <div class="section">
+      <input type="email" id="email" placeholder="Email" />
+      <input type="password" id="password" placeholder="Password" />
+      <button id="login-btn">Login</button>
+      <p id="login-status"></p>
+    </div>
+  </div>
+
+  <div id="admin-panel" class="hidden">
+    <h1>FRESQ Admin</h1>
+
+    <div class="section">
+      <h2>Générer des codes</h2>
+      <input type="number" id="count" value="10" min="1" max="100" />
+      <button id="generate-btn">Générer</button>
+      <p id="generate-status"></p>
+    </div>
+
+    <div class="section">
+      <h2>Codes générés</h2>
+      <button id="refresh-btn">Rafraîchir</button>
+      <button id="download-btn">Télécharger (TXT)</button>
+      <div id="codes-list"></div>
+    </div>
+
+    <div class="section">
+      <h2>Stats</h2>
+      <p>Total codes: <span id="total-codes">-</span></p>
+      <p>Codes assignés: <span id="assigned-codes">-</span></p>
+    </div>
+  </div>
+
+  <script src="/admin.js"></script>
+</body>
+</html>

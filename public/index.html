@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FRESQ V2 - Fresque Collaborative</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: linear-gradient(135deg, #0a0e1a 0%, #1a1f2e 100%);
+      color: #fff;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    #canvas-container {
+      width: 100vw;
+      height: calc(100vh - 140px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #0f1420;
+      position: relative;
+      overflow: hidden;
+    }
+
+    canvas {
+      border: 2px solid #2a3f5f;
+      border-radius: 4px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      cursor: crosshair;
+    }
+
+    /* Top bar */
+    #top-bar {
+      background: rgba(26, 31, 46, 0.95);
+      backdrop-filter: blur(10px);
+      padding: 12px 20px;
+      border-bottom: 1px solid #2a3f5f;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    #top-bar h1 {
+      font-size: 20px;
+      font-weight: 600;
+      background: linear-gradient(135deg, #6FE6FF 0%, #B66BFF 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .spacer { flex: 1; }
+
+    .info-pill {
+      padding: 6px 12px;
+      background: rgba(111, 230, 255, 0.1);
+      border: 1px solid rgba(111, 230, 255, 0.3);
+      border-radius: 16px;
+      font-size: 12px;
+      color: #6FE6FF;
+    }
+
+    /* Controls */
+    #controls {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(10, 14, 26, 0.98);
+      backdrop-filter: blur(20px);
+      padding: 16px 20px;
+      border-top: 1px solid #2a3f5f;
+      box-shadow: 0 -4px 24px rgba(0,0,0,0.3);
+    }
+
+    .row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .row:last-child { margin-bottom: 0; }
+
+    input, button {
+      padding: 10px 16px;
+      border: 1px solid #2a3f5f;
+      background: rgba(26, 31, 46, 0.8);
+      color: #fff;
+      border-radius: 6px;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #6FE6FF;
+      background: rgba(26, 31, 46, 1);
+    }
+
+    button {
+      cursor: pointer;
+      background: linear-gradient(135deg, #2a4 0%, #1a3 100%);
+      border: 1px solid #3b5;
+      font-weight: 500;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(42, 170, 68, 0.3);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button:disabled {
+      background: #333;
+      border-color: #444;
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+
+    button.secondary {
+      background: rgba(26, 31, 46, 0.8);
+      border-color: #2a3f5f;
+    }
+
+    button.secondary:hover {
+      background: rgba(42, 63, 95, 0.5);
+      box-shadow: 0 4px 12px rgba(42, 63, 95, 0.3);
+    }
+
+    #palette {
+      display: flex;
+      gap: 8px;
+    }
+
+    .color {
+      width: 40px;
+      height: 40px;
+      border-radius: 6px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all 0.2s;
+      position: relative;
+    }
+
+    .color:hover {
+      transform: scale(1.1);
+    }
+
+    .color.active {
+      border-color: #fff;
+      box-shadow: 0 0 16px rgba(255,255,255,0.4);
+    }
+
+    .color.active::after {
+      content: '✓';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #000;
+      font-weight: bold;
+      font-size: 18px;
+      text-shadow: 0 0 4px rgba(255,255,255,0.8);
+    }
+
+    #status {
+      padding: 10px 16px;
+      background: rgba(26, 31, 46, 0.8);
+      border-radius: 6px;
+      font-size: 13px;
+      min-width: 300px;
+      border: 1px solid #2a3f5f;
+    }
+
+    #status.success {
+      background: rgba(42, 170, 68, 0.2);
+      border-color: #2a4;
+      color: #6FE6FF;
+    }
+
+    #status.error {
+      background: rgba(255, 107, 107, 0.2);
+      border-color: #f44;
+      color: #ff6b6b;
+    }
+
+    /* Zoom indicator */
+    #zoom-info {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      background: rgba(10, 14, 26, 0.8);
+      backdrop-filter: blur(10px);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      border: 1px solid #2a3f5f;
+    }
+
+    /* Coordinates tooltip */
+    #coords-tooltip {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      background: rgba(10, 14, 26, 0.9);
+      backdrop-filter: blur(10px);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      border: 1px solid #2a3f5f;
+      opacity: 0;
+      transition: opacity 0.2s;
+      pointer-events: none;
+    }
+
+    #coords-tooltip.visible {
+      opacity: 1;
+    }
+
+    /* Minimap */
+    #minimap {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      width: 200px;
+      height: 200px;
+      background: rgba(10, 14, 26, 0.9);
+      backdrop-filter: blur(10px);
+      border: 1px solid #2a3f5f;
+      border-radius: 6px;
+      cursor: pointer;
+      overflow: hidden;
+    }
+
+    #minimap canvas {
+      width: 100%;
+      height: 100%;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+    }
+
+    /* Helper text */
+    .helper {
+      font-size: 11px;
+      color: #888;
+      margin-top: 4px;
+    }
+
+    /* Loading indicator */
+    .loading {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border: 2px solid #444;
+      border-top-color: #6FE6FF;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-left: 8px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div id="top-bar">
+    <h1>🎨 FRESQ V2</h1>
+    <div class="spacer"></div>
+    <div class="info-pill" id="cells-count">Cases: -</div>
+    <div class="info-pill" id="poll-status">●</div>
+  </div>
+
+  <div id="canvas-container">
+    <canvas id="grid"></canvas>
+    <div id="zoom-info">Zoom: <span id="zoom-level">100%</span></div>
+    <div id="coords-tooltip">x: -, y: -</div>
+    <div id="minimap">
+      <canvas id="minimap-canvas"></canvas>
+    </div>
+  </div>
+
+  <div id="controls">
+    <div class="row">
+      <input id="code-input" placeholder="Entre ton code (ex: ABC-12345)" style="flex: 1; max-width: 300px;" />
+      <button id="validate-btn">✓ Valider le code</button>
+      <div id="status">Attente d'un code...</div>
+      <div class="spacer"></div>
+      <button class="secondary" onclick="location.href='/admin.html'">⚙️ Admin</button>
+    </div>
+
+    <div class="row">
+      <div style="font-size: 12px; color: #888; width: 100px;">Palette:</div>
+      <div id="palette"></div>
+      <button id="paint-btn" disabled>🎨 Peindre ma case</button>
+      <div class="spacer"></div>
+      <button class="secondary" id="center-btn" disabled>📍 Centrer</button>
+      <button class="secondary" id="reset-zoom-btn">🔍 Zoom 100%</button>
+      <button class="secondary" id="export-btn">💾 Export PNG</button>
+    </div>
+
+    <div class="helper">
+      💡 Molette = Zoom • Shift + Clic = Déplacer • Clic = Choisir une case • 1-9 = Couleurs • Espace = Peindre • Flèches = Déplacer
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

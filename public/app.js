@@ -617,8 +617,8 @@ function draw() {
   ctx.translate(offsetX, offsetY);
   ctx.scale(scale, scale);
 
-  // Background grid with gray for empty cells (only in step 3, not in step 2)
-  if (currentStep === 3) {
+  // Background grid with gray for empty cells (steps 2 and 3)
+  if (currentStep === 2 || currentStep === 3) {
     for (let y = 0; y < gridH; y++) {
       for (let x = 0; x < gridW; x++) {
         const key = `${x},${y}`;

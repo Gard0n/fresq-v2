@@ -2,7 +2,10 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0a0e1a">
   <title>FRESQ V2 - Fresque Collaborative</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -12,6 +15,27 @@
       font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
       overflow: hidden;
       height: 100vh;
+      /* Mobile optimizations */
+      -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+      overscroll-behavior: none;
+    }
+
+    /* Prevent pull-to-refresh and improve touch */
+    html {
+      overscroll-behavior: none;
+      touch-action: pan-x pan-y;
+    }
+
+    /* Better touch targets for mobile */
+    button, input, select {
+      touch-action: manipulation;
+    }
+
+    #grid {
+      touch-action: none;
     }
 
     /* === STEP 1: CODE INPUT SCREEN === */
@@ -614,6 +638,124 @@
       font-size: 13px;
       color: #6FE6FF;
       z-index: 100;
+    }
+
+    /* ===== MOBILE RESPONSIVE IMPROVEMENTS ===== */
+    @media (max-width: 768px) {
+      /* Larger touch targets for buttons */
+      button {
+        min-height: 48px;
+        min-width: 48px;
+        font-size: 16px !important;
+        padding: 14px 24px !important;
+      }
+
+      /* Larger inputs for better touch */
+      input[type="text"], input[type="email"], input[type="number"] {
+        min-height: 48px;
+        font-size: 16px !important;
+        padding: 12px !important;
+      }
+
+      /* Tools menu button larger on mobile */
+      #tools-menu-btn {
+        width: 56px !important;
+        height: 56px !important;
+        font-size: 24px !important;
+      }
+
+      /* Color palette larger touch targets */
+      #step3-palette .color-btn {
+        min-width: 48px !important;
+        min-height: 48px !important;
+        margin: 4px !important;
+      }
+
+      /* Step 2 controls better spacing */
+      #step2-controls {
+        padding: 20px !important;
+        gap: 16px !important;
+      }
+
+      /* My codes list items larger */
+      #my-codes-list button {
+        padding: 16px !important;
+        font-size: 15px !important;
+      }
+
+      /* Tools overlay full screen on mobile */
+      #tools-overlay {
+        width: 100vw !important;
+        height: 100vh !important;
+        max-width: none !important;
+        border-radius: 0 !important;
+        top: 0 !important;
+        left: 0 !important;
+        transform: translateX(0) !important;
+      }
+
+      #tools-overlay.visible {
+        transform: translateX(0) !important;
+      }
+
+      /* Stats display responsive */
+      #stats-display {
+        left: 70px !important;
+        font-size: 12px !important;
+        padding: 6px 12px !important;
+      }
+
+      /* Confirm paint button larger */
+      #confirm-paint-btn {
+        min-height: 56px !important;
+        font-size: 18px !important;
+      }
+
+      /* Step 3 info more visible */
+      #step3-info {
+        font-size: 14px !important;
+        padding: 14px !important;
+      }
+    }
+
+    /* Extra small screens (phones in portrait) */
+    @media (max-width: 480px) {
+      #step1-screen h1 {
+        font-size: 28px !important;
+      }
+
+      #step1-screen p {
+        font-size: 14px !important;
+      }
+
+      #step2-controls .controls-group {
+        flex-direction: column !important;
+      }
+
+      /* Minimap smaller on mobile */
+      #minimap-canvas {
+        width: 120px !important;
+        height: 120px !important;
+      }
+
+      .tool-section {
+        padding: 16px !important;
+      }
+    }
+
+    /* Landscape orientation specific */
+    @media (max-height: 500px) and (orientation: landscape) {
+      #tools-overlay {
+        overflow-y: auto !important;
+      }
+
+      #step1-screen {
+        padding: 10px !important;
+      }
+
+      #step1-screen h1 {
+        font-size: 24px !important;
+      }
     }
   </style>
 </head>

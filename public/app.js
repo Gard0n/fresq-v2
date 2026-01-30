@@ -56,6 +56,42 @@ function debounce(func, wait) {
   };
 }
 
+// Mobile utilities
+function hapticFeedback(type = 'light') {
+  if ('vibrate' in navigator) {
+    const patterns = {
+      light: 10,
+      medium: 20,
+      heavy: 50,
+      success: [10, 50, 10],
+      error: [50, 100, 50]
+    };
+    navigator.vibrate(patterns[type] || patterns.light);
+  }
+}
+
+function isMobile() {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+         (window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
+}
+
+function isTouch() {
+  return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+}
+
+// Prevent double-tap zoom on specific elements
+function preventDoubleTapZoom(element) {
+  let lastTap = 0;
+  element.addEventListener('touchend', (e) => {
+    const currentTime = new Date().getTime();
+    const tapLength = currentTime - lastTap;
+    if (tapLength < 500 && tapLength > 0) {
+      e.preventDefault();
+    }
+    lastTap = currentTime;
+  }, { passive: false });
+}
+
 // ===== SCREENS =====
 const step1Screen = document.getElementById('step1-screen');
 const canvasScreen = document.getElementById('canvas-screen');
@@ -494,6 +530,8 @@ function showStep3Info(msg, type = 'info') {
 confirmPaintBtn.onclick = async () => {
   if (!currentCode || !myCell || !activeColor) return;
 
+  hapticFeedback('medium');
+
   try {
     showStep3Info('Peinture en cours...', 'info');
 
@@ -505,6 +543,7 @@ confirmPaintBtn.onclick = async () => {
     const data = await res.json();
 
     if (!data.ok) {
+      hapticFeedback('error');
       showStep3Info('Erreur de peinture', 'error');
       return;
     }
@@ -525,6 +564,7 @@ confirmPaintBtn.onclick = async () => {
     updateCellsCount();
     draw();
 
+    hapticFeedback('success');
     showStep3Info('Case peinte !', 'success');
 
     // Go back to step 2 after short delay
@@ -557,9 +597,11 @@ canvas.onclick = async (e) => {
   // If already have a cell, can repaint the same cell or show message
   if (myCell) {
     if (myCell.x === x && myCell.y === y) {
+      hapticFeedback('light');
       showStep3Info(`Case (${x}, ${y}) sélectionnée - Choisis ta couleur`, 'success');
       return;
     } else {
+      hapticFeedback('light');
       showStep3Info(`Ce code possède déjà la case (${myCell.x}, ${myCell.y})`, 'info');
       return;
     }
@@ -1214,6 +1256,42 @@ document.addEventListener('keydown', (e) => {
       showStep(1);
     }
   }
+});
+
+// ===== MOBILE INITIALIZATION =====
+if (isMobile()) {
+  console.log('📱 Mobile device detected');
+
+  // Prevent double-tap zoom on canvas
+  preventDoubleTapZoom(canvas);
+
+  // Prevent double-tap zoom on buttons
+  document.querySelectorAll('button').forEach(btn => preventDoubleTapZoom(btn));
+
+  // Optimize for mobile
+  if (isTouch()) {
+    document.body.classList.add('touch-device');
+  }
+
+  // Handle orientation changes
+  window.addEventListener('orientationchange', debounce(() => {
+    resizeCanvas();
+    hapticFeedback('light');
+  }, 200));
+
+  // Warn about landscape for better experience
+  if (window.innerHeight > window.innerWidth) {
+    setTimeout(() => {
+      if (currentStep === 2 || currentStep === 3) {
+        console.log('💡 Tip: Rotate to landscape for better experience');
+      }
+    }, 3000);
+  }
+}
+
+// Add light haptic feedback to all buttons
+document.querySelectorAll('button').forEach(btn => {
+  btn.addEventListener('click', () => hapticFeedback('light'), { passive: true });
 });
 
 // ===== START =====

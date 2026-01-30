@@ -39,6 +39,9 @@ let newCells = new Map();
 let socket = null;
 let isConnected = false;
 
+// Setup flag
+let isZoomPanSetup = false;
+
 // ===== SCREENS =====
 const step1Screen = document.getElementById('step1-screen');
 const step2Screen = document.getElementById('step2-screen');
@@ -430,13 +433,9 @@ function resizeCanvas() {
 }
 
 function setupZoomPan() {
-  // Remove existing listeners to avoid duplicates
-  const newCanvas = canvas.cloneNode(true);
-  canvas.parentNode.replaceChild(newCanvas, canvas);
-
-  // Reassign canvas reference
-  const canvasNew = document.getElementById('grid');
-  Object.assign(window, { canvas: canvasNew, ctx: canvasNew.getContext('2d') });
+  // Only setup once to avoid duplicates
+  if (isZoomPanSetup) return;
+  isZoomPanSetup = true;
 
   // Touch support
   let touchStartDist = 0;

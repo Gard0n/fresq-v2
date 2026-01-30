@@ -19,6 +19,9 @@ let activeColor = 1;
 let isObserverMode = false;
 let magnifierActive = false;
 
+// Theme state
+let currentTheme = localStorage.getItem('fresq_theme') || 'dark';
+
 // Canvas & rendering
 const canvas = document.getElementById('grid');
 const ctx = canvas.getContext('2d');
@@ -92,11 +95,61 @@ function preventDoubleTapZoom(element) {
   }, { passive: false });
 }
 
+// Theme management
+function initTheme() {
+  // Check system preference if no saved theme
+  if (!localStorage.getItem('fresq_theme')) {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    currentTheme = prefersDark ? 'dark' : 'light';
+  }
+
+  applyTheme(currentTheme);
+
+  // Listen for system theme changes
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+    if (!localStorage.getItem('fresq_theme')) {
+      currentTheme = e.matches ? 'dark' : 'light';
+      applyTheme(currentTheme);
+    }
+  });
+}
+
+function applyTheme(theme) {
+  currentTheme = theme;
+  document.documentElement.setAttribute('data-theme', theme);
+
+  // Update meta theme-color for mobile browsers
+  const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+  if (metaThemeColor) {
+    metaThemeColor.setAttribute('content', theme === 'light' ? '#f5f7fa' : '#0a0e1a');
+  }
+
+  // Update button icon
+  const themeBtn = document.getElementById('theme-toggle-btn');
+  if (themeBtn) {
+    themeBtn.textContent = theme === 'light' ? '🌙' : '☀️';
+    themeBtn.title = theme === 'light' ? 'Mode sombre' : 'Mode clair';
+  }
+
+  // Redraw canvas with new theme
+  if (ctx) {
+    draw();
+  }
+}
+
+function toggleTheme() {
+  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  applyTheme(newTheme);
+  localStorage.setItem('fresq_theme', newTheme);
+  hapticFeedback('light');
+}
+
 // ===== SCREENS =====
 const step1Screen = document.getElementById('step1-screen');
 const canvasScreen = document.getElementById('canvas-screen');
 const toolsMenuBtn = document.getElementById('tools-menu-btn');
 const toolsOverlay = document.getElementById('tools-overlay');
+const themeToggleBtn = document.getElementById('theme-toggle-btn');
 
 // ===== STEP 1 ELEMENTS (Email Login) =====
 const emailInputStep1 = document.getElementById('email-input-step1');
@@ -149,6 +202,9 @@ const magnifierCtx = magnifierCanvas.getContext('2d');
 
 // ===== INIT =====
 async function init() {
+  // Initialize theme first
+  initTheme();
+
   try {
     const res = await fetch('/api/config');
     const config = await res.json();
@@ -833,7 +889,12 @@ async function loadState() {
 function draw() {
   if (!ctx) return;
 
-  ctx.fillStyle = '#0a0e1a';
+  // Get theme-aware colors from CSS variables
+  const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim();
+  const emptyCellColor = currentTheme === 'light' ? '#e8ecf1' : '#1a1a1a';
+  const gridLineColor = getComputedStyle(document.documentElement).getPropertyValue('--grid-line').trim();
+
+  ctx.fillStyle = bgColor;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   ctx.save();
@@ -846,7 +907,7 @@ function draw() {
       for (let x = 0; x < gridW; x++) {
         const key = `${x},${y}`;
         if (!cells.has(key)) {
-          ctx.fillStyle = '#1a1a1a';
+          ctx.fillStyle = emptyCellColor;
           ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
         }
       }
@@ -1056,6 +1117,11 @@ toolsOverlay.onclick = (e) => {
   if (e.target === toolsOverlay) {
     toolsOverlay.classList.remove('visible');
   }
+};
+
+// Theme toggle
+themeToggleBtn.onclick = () => {
+  toggleTheme();
 };
 
 // Navigation

@@ -44,8 +44,7 @@ let isZoomPanSetup = false;
 
 // ===== SCREENS =====
 const step1Screen = document.getElementById('step1-screen');
-const step2Screen = document.getElementById('step2-screen');
-const step3Screen = document.getElementById('step3-screen');
+const canvasScreen = document.getElementById('canvas-screen');
 const toolsMenuBtn = document.getElementById('tools-menu-btn');
 const toolsOverlay = document.getElementById('tools-overlay');
 
@@ -56,12 +55,18 @@ const step1Status = document.getElementById('step1-status');
 const myCellsPanel = document.getElementById('my-cells-panel');
 const myCellsList = document.getElementById('my-cells-list');
 
+// Canvas screen panels
+const myCellsPanelCanvas = document.getElementById('my-cells-panel-canvas');
+const myCellsListCanvas = document.getElementById('my-cells-list-canvas');
+
 // ===== STEP 2 ELEMENTS =====
+const step2Controls = document.getElementById('step2-controls');
 const step2Palette = document.getElementById('step2-palette');
 const confirmPaintBtn = document.getElementById('confirm-paint-btn');
 const step2Info = document.getElementById('step2-info');
 
 // ===== STEP 3 ELEMENTS =====
+const step3Controls = document.getElementById('step3-controls');
 const repaintBtn = document.getElementById('repaint-btn');
 const newCodeBtn = document.getElementById('new-code-btn');
 
@@ -141,47 +146,62 @@ function saveUserCodes() {
 function updateMyCellsPanel() {
   if (userCodes.size === 0) {
     myCellsPanel.classList.add('hidden');
+    myCellsPanelCanvas.classList.add('hidden');
     return;
   }
 
-  myCellsPanel.classList.remove('hidden');
-  myCellsList.innerHTML = '';
+  // Update both panels (step 1 and canvas screen)
+  const updatePanel = (listEl) => {
+    listEl.innerHTML = '';
+    userCodes.forEach((cell, code) => {
+      const div = document.createElement('div');
+      div.className = 'my-cell-item';
+      const colorHex = palette[cell.color - 1] || '#888';
+      div.innerHTML = `
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <div style="width: 16px; height: 16px; background: ${colorHex}; border-radius: 3px;"></div>
+          <span>(${cell.x}, ${cell.y})</span>
+        </div>
+      `;
+      listEl.appendChild(div);
+    });
+  };
 
-  userCodes.forEach((cell, code) => {
-    const div = document.createElement('div');
-    div.className = 'my-cell-item';
-    const colorHex = palette[cell.color - 1] || '#888';
-    div.innerHTML = `
-      <div style="display: flex; gap: 8px; align-items: center;">
-        <div style="width: 16px; height: 16px; background: ${colorHex}; border-radius: 3px;"></div>
-        <span>(${cell.x}, ${cell.y})</span>
-      </div>
-    `;
-    myCellsList.appendChild(div);
-  });
+  myCellsPanel.classList.remove('hidden');
+  updatePanel(myCellsList);
+  updatePanel(myCellsListCanvas);
 }
 
 // ===== STEP NAVIGATION =====
 function showStep(step) {
   currentStep = step;
 
+  // Hide all screens
   step1Screen.classList.add('hidden');
-  step2Screen.classList.add('hidden');
-  step3Screen.classList.add('hidden');
+  canvasScreen.classList.add('hidden');
+  step2Controls.classList.add('hidden');
+  step3Controls.classList.add('hidden');
   toolsMenuBtn.classList.add('hidden');
+  myCellsPanelCanvas.classList.add('hidden');
 
   if (step === 1) {
     step1Screen.classList.remove('hidden');
     updateMyCellsPanel();
     drawBackgroundFresque();
   } else if (step === 2) {
-    step2Screen.classList.remove('hidden');
+    canvasScreen.classList.remove('hidden');
+    step2Controls.classList.remove('hidden');
     toolsMenuBtn.classList.remove('hidden');
+    myCellsPanelCanvas.classList.remove('hidden');
+    updateMyCellsPanel();
     setupCanvas();
     draw();
   } else if (step === 3) {
-    step3Screen.classList.remove('hidden');
+    canvasScreen.classList.remove('hidden');
+    step3Controls.classList.remove('hidden');
     toolsMenuBtn.classList.remove('hidden');
+    myCellsPanelCanvas.classList.remove('hidden');
+    updateMyCellsPanel();
     // Setup canvas if not already done
     if (!isZoomPanSetup) {
       setupCanvas();

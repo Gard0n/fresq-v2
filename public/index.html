@@ -605,7 +605,7 @@
 
     <!-- Content on top -->
     <div id="step1-content">
-      <h1>🎨 FRESQ V2.3</h1>
+      <h1>🎨 FRESQ V2.4</h1>
       <div class="subtitle">Fresque Collaborative - Step-by-Step</div>
       <div class="explanation">
         Bienvenue sur FRESQ, une fresque collaborative géante de 200×200 cases (40,000 pixels).
@@ -629,8 +629,8 @@
     </div>
   </div>
 
-  <!-- STEP 2: Cell Selection Screen -->
-  <div id="step2-screen" class="hidden">
+  <!-- STEP 2 & 3: Canvas Screen (shared) -->
+  <div id="canvas-screen" class="hidden">
     <div id="canvas-container">
       <canvas id="grid"></canvas>
       <div id="zoom-info">Zoom: <span id="zoom-level">100%</span></div>
@@ -638,25 +638,22 @@
       <div id="magnifier">
         <canvas id="magnifier-canvas"></canvas>
       </div>
+      <!-- My Cells Panel (shown when user has cells in steps 2 & 3) -->
+      <div id="my-cells-panel-canvas" class="hidden" style="position: fixed; top: 20px; right: 20px; background: rgba(26, 31, 46, 0.95); backdrop-filter: blur(10px); border: 1px solid #2a3f5f; border-radius: 8px; padding: 16px; max-width: 300px; z-index: 10;">
+        <h3 style="font-size: 14px; margin-bottom: 12px; color: #6FE6FF;">📌 Mes cases peintes</h3>
+        <div id="my-cells-list-canvas"></div>
+      </div>
     </div>
-    <div id="step2-controls">
+
+    <!-- STEP 2 Controls -->
+    <div id="step2-controls" class="hidden">
       <div id="step2-info">Choisis ta case et une couleur, puis confirme</div>
       <div id="step2-palette"></div>
       <button id="confirm-paint-btn" disabled>🎨 Confirmer</button>
     </div>
-  </div>
 
-  <!-- STEP 3: View Screen -->
-  <div id="step3-screen" class="hidden">
-    <div id="canvas-container">
-      <canvas id="grid"></canvas>
-      <div id="zoom-info">Zoom: <span id="zoom-level">100%</span></div>
-      <div id="coords-tooltip">x: -, y: -</div>
-      <div id="magnifier">
-        <canvas id="magnifier-canvas"></canvas>
-      </div>
-    </div>
-    <div id="step3-controls">
+    <!-- STEP 3 Controls -->
+    <div id="step3-controls" class="hidden">
       <button class="primary" id="repaint-btn">🎨 Repeindre ma case</button>
       <button id="new-code-btn">➕ Nouveau code</button>
     </div>

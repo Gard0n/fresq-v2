@@ -477,7 +477,7 @@ app.get("/api/admin/me", requireAdmin, async (req, res) => {
 app.post("/api/admin/codes/generate", requireAdmin, async (req, res) => {
   const count = Number(req.body?.count || 0);
 
-  if (!Number.isInteger(count) || count <= 0 || count > 100) {
+  if (!Number.isInteger(count) || count <= 0 || count > 10000) {
     return res.status(400).json({ error: 'invalid_count' });
   }
 
@@ -487,17 +487,18 @@ app.post("/api/admin/codes/generate", requireAdmin, async (req, res) => {
 
     for (let i = 0; i < count; i++) {
       const code = generateCode(8);
-      const result = await client.query(
-        "INSERT INTO codes (code) VALUES ($1) ON CONFLICT DO NOTHING RETURNING code",
-        [code]
-      );
-      if (result.rowCount > 0) {
-        codes.push(result.rows[0].code);
-      }
+      codes.push(code);
     }
 
-    res.json({ ok: true, generated: codes.length, codes });
+    // Batch insert for better performance
+    const values = codes.map((code, i) => `($${i + 1})`).join(',');
+    const query = `INSERT INTO codes (code) VALUES ${values} ON CONFLICT (code) DO NOTHING RETURNING code`;
+
+    const result = await client.query(query, codes);
+
+    res.json({ ok: true, generated: result.rowCount, codes: result.rows.map(r => r.code) });
   } catch (err) {
+    console.error('Generate codes error:', err);
     res.status(500).json({ error: 'generate_error' });
   } finally {
     client.release();
@@ -505,18 +506,76 @@ app.post("/api/admin/codes/generate", requireAdmin, async (req, res) => {
 });
 
 app.get("/api/admin/codes", requireAdmin, async (req, res) => {
-  const limit = Math.min(Number(req.query.limit || 100), 1000);
-
   const client = await pool.connect();
   try {
-    const result = await client.query(
-      "SELECT code, cell_x AS x, cell_y AS y, color FROM codes ORDER BY created_at DESC LIMIT $1",
-      [limit]
-    );
+    const { filter, page = 1, limit = 100 } = req.query;
+    const offset = (page - 1) * limit;
 
-    res.json({ ok: true, codes: result.rows });
+    let query = "SELECT c.id, c.code, c.user_id, u.email, c.cell_x as x, c.cell_y as y, c.color, c.created_at, c.updated_at FROM codes c LEFT JOIN users u ON c.user_id = u.id";
+    let whereClause = "";
+
+    if (filter === 'unclaimed') {
+      whereClause = " WHERE c.user_id IS NULL";
+    } else if (filter === 'claimed') {
+      whereClause = " WHERE c.user_id IS NOT NULL";
+    } else if (filter === 'painted') {
+      whereClause = " WHERE c.cell_x IS NOT NULL";
+    } else if (filter === 'unpainted') {
+      whereClause = " WHERE c.cell_x IS NULL";
+    }
+
+    query += whereClause + " ORDER BY c.created_at DESC LIMIT $1 OFFSET $2";
+
+    const codes = await client.query(query, [limit, offset]);
+
+    // Get total count
+    let countQuery = "SELECT COUNT(*)::int as count FROM codes c" + whereClause;
+    const totalCount = await client.query(countQuery);
+
+    res.json({
+      ok: true,
+      codes: codes.rows,
+      total: totalCount.rows[0].count,
+      page: parseInt(page),
+      totalPages: Math.ceil(totalCount.rows[0].count / limit)
+    });
   } catch (err) {
-    res.status(500).json({ error: 'codes_error' });
+    console.error('Admin codes list error:', err);
+    res.status(500).json({ error: 'codes_list_error' });
+  } finally {
+    client.release();
+  }
+});
+
+app.get("/api/admin/codes/export", requireAdmin, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { filter } = req.query;
+
+    let query = "SELECT c.code, c.user_id, u.email, c.cell_x as x, c.cell_y as y, c.color FROM codes c LEFT JOIN users u ON c.user_id = u.id";
+
+    if (filter === 'unclaimed') {
+      query += " WHERE c.user_id IS NULL";
+    } else if (filter === 'claimed') {
+      query += " WHERE c.user_id IS NOT NULL";
+    }
+
+    query += " ORDER BY c.created_at DESC";
+
+    const codes = await client.query(query);
+
+    // Generate CSV
+    let csv = "Code,User Email,User ID,Cell X,Cell Y,Color\n";
+    codes.rows.forEach(row => {
+      csv += `${row.code},${row.email || ''},${row.user_id || ''},${row.x || ''},${row.y || ''},${row.color || ''}\n`;
+    });
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=codes_${Date.now()}.csv`);
+    res.send(csv);
+  } catch (err) {
+    console.error('Admin export codes error:', err);
+    res.status(500).json({ error: 'export_error' });
   } finally {
     client.release();
   }
@@ -525,17 +584,34 @@ app.get("/api/admin/codes", requireAdmin, async (req, res) => {
 app.get("/api/admin/stats", requireAdmin, async (req, res) => {
   const client = await pool.connect();
   try {
-    const totalRes = await client.query("SELECT COUNT(*)::int AS total FROM codes");
-    const assignedRes = await client.query("SELECT COUNT(*)::int AS assigned FROM codes WHERE cell_x IS NOT NULL");
+    // Total users
+    const usersCount = await client.query("SELECT COUNT(*)::int AS count FROM users");
+
+    // Total codes
+    const codesCount = await client.query("SELECT COUNT(*)::int AS count FROM codes");
+
+    // Claimed codes
+    const claimedCodesCount = await client.query("SELECT COUNT(*)::int AS count FROM codes WHERE user_id IS NOT NULL");
+
+    // Painted cells
+    const paintedCellsCount = await client.query("SELECT COUNT(*)::int AS count FROM codes WHERE cell_x IS NOT NULL");
+
+    // Cells painted in last 24h
+    const painted24h = await client.query(
+      "SELECT COUNT(*)::int AS count FROM codes WHERE updated_at >= NOW() - INTERVAL '24 hours' AND cell_x IS NOT NULL"
+    );
 
     res.json({
       ok: true,
-      counts: {
-        total_codes: totalRes.rows[0].total,
-        assigned_codes: assignedRes.rows[0].assigned
-      }
+      total_users: usersCount.rows[0].count,
+      total_codes: codesCount.rows[0].count,
+      claimed_codes: claimedCodesCount.rows[0].count,
+      painted_cells: paintedCellsCount.rows[0].count,
+      percent_painted: ((paintedCellsCount.rows[0].count / 40000) * 100).toFixed(2),
+      painted_24h: painted24h.rows[0].count
     });
   } catch (err) {
+    console.error('Admin stats error:', err);
     res.status(500).json({ error: 'stats_error' });
   } finally {
     client.release();

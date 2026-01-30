@@ -277,42 +277,28 @@
       color: #888;
     }
 
-    /* === STEP 3: VIEW CONTROLS === */
+    /* === STEP 3: CELL SELECTION + COLOR === */
     #step3-controls {
       background: rgba(10, 14, 26, 0.98);
       backdrop-filter: blur(20px);
       padding: 20px;
       border-top: 1px solid #2a3f5f;
       display: flex;
-      gap: 12px;
-      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
       align-items: center;
     }
 
-    #step3-controls button {
-      padding: 14px 32px;
-      font-size: 15px;
-      border: 1px solid #2a3f5f;
-      background: rgba(26, 31, 46, 0.8);
-      color: #fff;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: 500;
-      transition: all 0.2s;
+    #step3-palette {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
     }
 
-    #step3-controls button:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(42, 63, 95, 0.3);
-    }
-
-    #step3-controls button.primary {
-      background: linear-gradient(135deg, #2a4 0%, #1a3 100%);
-      border: 1px solid #3b5;
-    }
-
-    #step3-controls button.primary:hover {
-      box-shadow: 0 4px 16px rgba(42, 170, 68, 0.4);
+    #step3-info {
+      font-size: 13px;
+      color: #888;
     }
 
     /* === TOOLS OVERLAY MENU === */

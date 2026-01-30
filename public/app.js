@@ -212,14 +212,9 @@ function updateMyCodesList() {
         <span style="font-size: 13px; color: #aaa;">${codeData.code}</span>
         ${isPainted ? `<span style="font-size: 12px; color: #666;">(${codeData.x}, ${codeData.y})</span>` : '<span style="font-size: 12px; color: #666;">Non assigné</span>'}
       </div>
-      <div style="display: flex; gap: 8px;">
-        <button class="repaint-btn" data-code="${codeData.code}" style="padding: 6px 16px; font-size: 12px; background: linear-gradient(135deg, #2a4 0%, #1a3 100%); border: 1px solid #3b5; color: #fff; border-radius: 4px; cursor: pointer;">
-          ${isPainted ? '🎨 Repeindre' : '➕ Peindre'}
-        </button>
-        <button class="delete-code-btn" data-code="${codeData.code}" style="padding: 6px 12px; font-size: 12px; background: rgba(255, 107, 107, 0.2); border: 1px solid #ff6b6b; color: #ff6b6b; border-radius: 4px; cursor: pointer;" title="Supprimer ce code">
-          🗑️
-        </button>
-      </div>
+      <button class="repaint-btn" data-code="${codeData.code}" style="padding: 6px 16px; font-size: 12px; background: linear-gradient(135deg, #2a4 0%, #1a3 100%); border: 1px solid #3b5; color: #fff; border-radius: 4px; cursor: pointer;">
+        ${isPainted ? '🎨 Repeindre' : '➕ Peindre'}
+      </button>
     `;
 
     myCodesList.appendChild(div);
@@ -230,18 +225,6 @@ function updateMyCodesList() {
     btn.onclick = () => {
       const code = btn.dataset.code;
       startPaintingWithCode(code);
-    };
-  });
-
-  // Add event listeners to delete buttons
-  document.querySelectorAll('.delete-code-btn').forEach(btn => {
-    btn.onclick = () => {
-      const code = btn.dataset.code;
-      if (confirm(`Supprimer le code ${code} de votre liste ?\n\nNote: Cela ne supprimera que le code de votre compte, pas la case peinte.`)) {
-        // Remove from userCodes array
-        userCodes = userCodes.filter(c => c.code !== code);
-        updateMyCodesList();
-      }
     };
   });
 }
@@ -425,8 +408,6 @@ addCodeBtn.onclick = async () => {
         showAddCodeStatus('Code invalide', 'error');
       } else if (data.error === 'code_already_owned') {
         showAddCodeStatus('Code déjà utilisé par un autre utilisateur', 'error');
-      } else if (data.error === 'max_codes_reached') {
-        showAddCodeStatus('Limite atteinte : maximum 20 codes par utilisateur', 'error');
       } else if (data.error === 'too_many_requests') {
         showAddCodeStatus('Trop de requêtes, attendez un instant', 'error');
       } else {

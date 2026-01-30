@@ -154,17 +154,6 @@ app.post("/api/user/claim-code", rateLimit(20, 60000), async (req, res) => { // 
   try {
     await client.query("BEGIN");
 
-    // Check user's current code count
-    const userCodesCount = await client.query(
-      "SELECT COUNT(*)::int AS count FROM codes WHERE user_id = $1",
-      [userId]
-    );
-
-    if (userCodesCount.rows[0].count >= 20) {
-      await client.query("ROLLBACK");
-      return res.json({ ok: false, error: "max_codes_reached" });
-    }
-
     // Check if code exists and is valid
     const codeRes = await client.query(
       "SELECT id, user_id, cell_x, cell_y, color FROM codes WHERE code = $1 FOR UPDATE",

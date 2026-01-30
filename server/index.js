@@ -1147,6 +1147,40 @@ app.post("/api/admin/config/palette", requireAdmin, async (req, res) => {
   }
 });
 
+// ===== PUBLIC: LEADERBOARD =====
+app.get("/api/leaderboard", async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const limit = Math.min(Number(req.query.limit || 10), 50);
+
+    const leaderboard = await client.query(`
+      SELECT
+        u.email,
+        COUNT(c.id)::int as painted_count
+      FROM users u
+      INNER JOIN codes c ON u.id = c.user_id
+      WHERE c.cell_x IS NOT NULL
+      GROUP BY u.id, u.email
+      HAVING COUNT(c.id) > 0
+      ORDER BY painted_count DESC
+      LIMIT $1
+    `, [limit]);
+
+    // Anonymize emails (keep first 3 chars + ***)
+    const anonymized = leaderboard.rows.map(row => ({
+      email: row.email.substring(0, 3) + '***@' + row.email.split('@')[1],
+      painted_count: row.painted_count
+    }));
+
+    res.json({ ok: true, leaderboard: anonymized });
+  } catch (err) {
+    console.error('Leaderboard error:', err);
+    res.status(500).json({ error: 'leaderboard_error' });
+  } finally {
+    client.release();
+  }
+});
+
 // ===== WEBSOCKET CONNECTION =====
 io.on('connection', (socket) => {
   console.log(`✅ Client connected: ${socket.id}`);

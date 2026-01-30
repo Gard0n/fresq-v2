@@ -185,37 +185,31 @@ function createCellEffects(x, y, color) {
 const tutorialSteps = [
   {
     title: "Bienvenue sur FRESQ V2! 👋",
-    content: "FRESQ est une fresque collaborative de 200×200 pixels. Chaque utilisateur peut peindre une case de la couleur de son choix!",
+    content: "FRESQ est une fresque collaborative de 200×200 pixels où chaque utilisateur peut peindre une case!",
     highlight: null,
     position: { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }
   },
   {
-    title: "Étape 1: Email 📧",
-    content: "Commence par entrer ton email pour te connecter. Tu recevras un lien de connexion sécurisé.",
+    title: "1️⃣ Connexion",
+    content: "Entre ton email ci-dessous pour te connecter et commencer.",
     highlight: '#email-input-step1',
-    position: { top: '60%', left: '50%', transform: 'translate(-50%, 0)' }
+    position: { top: '65%', left: '50%', transform: 'translate(-50%, 0)' }
   },
   {
-    title: "Étape 2: Codes 🎫",
-    content: "Une fois connecté, tu peux ajouter des codes pour réclamer des cases. Chaque code te donne droit à une case sur la grille!",
-    highlight: '#step2-controls',
-    position: { top: '20%', left: '50%', transform: 'translate(-50%, 0)' }
+    title: "2️⃣ Obtenir un Code",
+    content: "Tu as besoin d'un code pour réclamer une case. Demande-le à un admin ou utilise celui que tu as reçu!",
+    highlight: null,
+    position: { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }
   },
   {
-    title: "Étape 3: Peindre 🎨",
-    content: "Clique sur une case de la grille pour la réclamer, choisis ta couleur, puis valide ta peinture!",
-    highlight: '#canvas-screen',
-    position: { top: '60%', left: '50%', transform: 'translate(-50%, 0)' }
+    title: "3️⃣ Peindre",
+    content: "Ajoute ton code, clique sur une case libre, choisis ta couleur et valide!",
+    highlight: null,
+    position: { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }
   },
   {
-    title: "Navigation 🧭",
-    content: "Utilise le menu outils (⚙️) pour accéder aux statistiques, zoom, minimap et plus encore!",
-    highlight: '#tools-menu-btn',
-    position: { top: '80px', left: '20px' }
-  },
-  {
-    title: "C'est parti! 🚀",
-    content: "Tu es prêt à contribuer à la fresque! Amuse-toi bien et sois créatif! 🎨",
+    title: "✨ Bonus",
+    content: "Utilise le menu ⚙️ (en haut à gauche) pour accéder aux stats, leaderboard, zoom, partage social et plus!",
     highlight: null,
     position: { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }
   }

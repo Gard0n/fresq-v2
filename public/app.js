@@ -70,6 +70,10 @@ const step3Controls = document.getElementById('step3-controls');
 const repaintBtn = document.getElementById('repaint-btn');
 const newCodeBtn = document.getElementById('new-code-btn');
 
+// ===== STATS BAR (H24) =====
+const statPaintedH24 = document.getElementById('stat-painted-h24');
+const statPercentH24 = document.getElementById('stat-percent-h24');
+
 // ===== TOOLS OVERLAY ELEMENTS =====
 const statPainted = document.getElementById('stat-painted');
 const statPercent = document.getElementById('stat-percent');
@@ -117,6 +121,13 @@ async function init() {
 
     // Show step 1 by default
     showStep(1);
+
+    // Force redraw background after a short delay to ensure everything is loaded
+    setTimeout(() => {
+      if (currentStep === 1) {
+        drawBackgroundFresque();
+      }
+    }, 100);
   } catch (err) {
     console.error('Init error:', err);
     showStep1Status('Erreur de chargement', 'error');
@@ -744,8 +755,13 @@ function updateCellsCount() {
   const painted = cells.size;
   const percent = ((painted / total) * 100).toFixed(1);
 
+  // Update stats in overlay
   statPainted.textContent = painted.toLocaleString('fr-FR');
   statPercent.textContent = `${percent}%`;
+
+  // Update stats H24
+  statPaintedH24.textContent = painted.toLocaleString('fr-FR');
+  statPercentH24.textContent = `${percent}%`;
 }
 
 // ===== MINIMAP =====

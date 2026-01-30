@@ -144,8 +144,8 @@
     /* My Cells Panel */
     #my-cells-panel {
       position: fixed;
-      top: 20px;
-      right: 20px;
+      top: 70px;
+      left: 20px;
       background: rgba(26, 31, 46, 0.95);
       backdrop-filter: blur(10px);
       border: 1px solid #2a3f5f;
@@ -584,9 +584,57 @@
         height: 35px;
       }
     }
+    /* === STATS BAR (visible H24) === */
+    #stats-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: rgba(10, 14, 26, 0.95);
+      backdrop-filter: blur(10px);
+      padding: 12px 20px;
+      border-bottom: 1px solid #2a3f5f;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      z-index: 1000;
+    }
+
+    #stats-bar h1 {
+      font-size: 18px;
+      font-weight: 600;
+      background: linear-gradient(135deg, #6FE6FF 0%, #B66BFF 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin: 0;
+    }
+
+    .stats-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 6px 16px;
+      background: rgba(42, 170, 68, 0.1);
+      border: 1px solid rgba(42, 170, 68, 0.3);
+      border-radius: 8px;
+      font-size: 13px;
+      color: #6FE6FF;
+    }
+
+    .spacer-stats { flex: 1; }
   </style>
 </head>
 <body>
+  <!-- Stats Bar (visible H24) -->
+  <div id="stats-bar">
+    <h1>🎨 FRESQ V2.6</h1>
+    <div class="stats-info">
+      <span id="stats-h24"><span id="stat-painted-h24">-</span> / 40,000 cases (<span id="stat-percent-h24">0.0%</span>)</span>
+    </div>
+    <div class="spacer-stats"></div>
+  </div>
+
   <!-- STEP 1: Code Input Screen -->
   <div id="step1-screen">
     <!-- Background canvas with fresque -->
@@ -633,7 +681,7 @@
         <canvas id="magnifier-canvas"></canvas>
       </div>
       <!-- My Cells Panel (shown when user has cells in steps 2 & 3) -->
-      <div id="my-cells-panel-canvas" class="hidden" style="position: fixed; top: 20px; right: 20px; background: rgba(26, 31, 46, 0.95); backdrop-filter: blur(10px); border: 1px solid #2a3f5f; border-radius: 8px; padding: 16px; max-width: 300px; z-index: 10;">
+      <div id="my-cells-panel-canvas" class="hidden" style="position: fixed; top: 70px; left: 20px; background: rgba(26, 31, 46, 0.95); backdrop-filter: blur(10px); border: 1px solid #2a3f5f; border-radius: 8px; padding: 16px; max-width: 300px; z-index: 10;">
         <h3 style="font-size: 14px; margin-bottom: 12px; color: #6FE6FF;">📌 Mes cases peintes</h3>
         <div id="my-cells-list-canvas"></div>
       </div>

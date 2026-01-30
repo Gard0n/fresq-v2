@@ -70,7 +70,8 @@ const step3Controls = document.getElementById('step3-controls');
 const repaintBtn = document.getElementById('repaint-btn');
 const newCodeBtn = document.getElementById('new-code-btn');
 
-// ===== STATS BAR (H24) =====
+// ===== STATS DISPLAY (à côté du bouton tools) =====
+const statsDisplay = document.getElementById('stats-display');
 const statPaintedH24 = document.getElementById('stat-painted-h24');
 const statPercentH24 = document.getElementById('stat-percent-h24');
 
@@ -193,6 +194,7 @@ function showStep(step) {
   step2Controls.classList.add('hidden');
   step3Controls.classList.add('hidden');
   toolsMenuBtn.classList.add('hidden');
+  statsDisplay.classList.add('hidden');
   myCellsPanelCanvas.classList.add('hidden');
 
   if (step === 1) {
@@ -203,6 +205,7 @@ function showStep(step) {
     canvasScreen.classList.remove('hidden');
     step2Controls.classList.remove('hidden');
     toolsMenuBtn.classList.remove('hidden');
+    statsDisplay.classList.remove('hidden');
     myCellsPanelCanvas.classList.remove('hidden');
     updateMyCellsPanel();
     setupCanvas();
@@ -211,6 +214,7 @@ function showStep(step) {
     canvasScreen.classList.remove('hidden');
     step3Controls.classList.remove('hidden');
     toolsMenuBtn.classList.remove('hidden');
+    statsDisplay.classList.remove('hidden');
     myCellsPanelCanvas.classList.remove('hidden');
     updateMyCellsPanel();
     // Setup canvas if not already done

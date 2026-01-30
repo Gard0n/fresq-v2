@@ -584,57 +584,23 @@
         height: 35px;
       }
     }
-    /* === STATS BAR (visible H24) === */
-    #stats-bar {
+    /* === STATS DISPLAY (à côté du bouton tools) === */
+    #stats-display {
       position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      background: rgba(10, 14, 26, 0.95);
+      top: 20px;
+      left: 80px;
+      background: rgba(10, 14, 26, 0.9);
       backdrop-filter: blur(10px);
-      padding: 12px 20px;
-      border-bottom: 1px solid #2a3f5f;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      z-index: 1000;
-    }
-
-    #stats-bar h1 {
-      font-size: 18px;
-      font-weight: 600;
-      background: linear-gradient(135deg, #6FE6FF 0%, #B66BFF 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      margin: 0;
-    }
-
-    .stats-info {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 6px 16px;
-      background: rgba(42, 170, 68, 0.1);
-      border: 1px solid rgba(42, 170, 68, 0.3);
-      border-radius: 8px;
+      padding: 8px 16px;
+      border-radius: 24px;
+      border: 1px solid #2a3f5f;
       font-size: 13px;
       color: #6FE6FF;
+      z-index: 100;
     }
-
-    .spacer-stats { flex: 1; }
   </style>
 </head>
 <body>
-  <!-- Stats Bar (visible H24) -->
-  <div id="stats-bar">
-    <h1>🎨 FRESQ V2.6</h1>
-    <div class="stats-info">
-      <span id="stats-h24"><span id="stat-painted-h24">-</span> / 40,000 cases (<span id="stat-percent-h24">0.0%</span>)</span>
-    </div>
-    <div class="spacer-stats"></div>
-  </div>
-
   <!-- STEP 1: Code Input Screen -->
   <div id="step1-screen">
     <!-- Background canvas with fresque -->
@@ -647,7 +613,7 @@
 
     <!-- Content on top -->
     <div id="step1-content">
-      <h1>🎨 FRESQ V2.5</h1>
+      <h1>🎨 FRESQ V2.6</h1>
       <div class="subtitle">Fresque Collaborative - Step-by-Step</div>
       <div class="explanation">
         Bienvenue sur FRESQ, une fresque collaborative géante de 200×200 cases (40,000 pixels).
@@ -703,6 +669,11 @@
 
   <!-- Tools Overlay Menu -->
   <div id="tools-menu-btn" class="hidden" title="Outils">⚙️</div>
+
+  <!-- Stats Display (à côté du bouton paramètres) -->
+  <div id="stats-display" class="hidden">
+    <span id="stat-painted-h24">-</span> / 40,000 (<span id="stat-percent-h24">0.0%</span>)
+  </div>
 
   <div id="tools-overlay">
     <div id="tools-panel">

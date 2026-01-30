@@ -7,8 +7,9 @@ let palette = [];
 let cells = new Map();
 let cellTimestamps = new Map();
 
-// Multi-code support
-let userCodes = new Map(); // Map<code, {x, y, color}>
+// User authentication
+let currentUser = null; // {id, email}
+let userCodes = []; // Array of {code, x, y, color}
 let currentCode = null;
 let myCell = null;
 
@@ -48,27 +49,25 @@ const canvasScreen = document.getElementById('canvas-screen');
 const toolsMenuBtn = document.getElementById('tools-menu-btn');
 const toolsOverlay = document.getElementById('tools-overlay');
 
-// ===== STEP 1 ELEMENTS =====
-const codeInputStep1 = document.getElementById('code-input-step1');
-const submitCodeBtn = document.getElementById('submit-code-btn');
+// ===== STEP 1 ELEMENTS (Email Login) =====
+const emailInputStep1 = document.getElementById('email-input-step1');
+const submitEmailBtn = document.getElementById('submit-email-btn');
 const step1Status = document.getElementById('step1-status');
-const myCellsPanel = document.getElementById('my-cells-panel');
-const myCellsList = document.getElementById('my-cells-list');
 
-// Canvas screen panels
-const myCellsPanelCanvas = document.getElementById('my-cells-panel-canvas');
-const myCellsListCanvas = document.getElementById('my-cells-list-canvas');
-
-// ===== STEP 2 ELEMENTS =====
+// ===== STEP 2 ELEMENTS (Code Management) =====
 const step2Controls = document.getElementById('step2-controls');
-const step2Palette = document.getElementById('step2-palette');
-const confirmPaintBtn = document.getElementById('confirm-paint-btn');
-const step2Info = document.getElementById('step2-info');
+const myCodesSection = document.getElementById('my-codes-section');
+const myCodesList = document.getElementById('my-codes-list');
+const noCodesMsg = document.getElementById('no-codes-msg');
+const newCodeInput = document.getElementById('new-code-input');
+const addCodeBtn = document.getElementById('add-code-btn');
+const addCodeStatus = document.getElementById('add-code-status');
 
-// ===== STEP 3 ELEMENTS =====
+// ===== STEP 3 ELEMENTS (Cell Selection + Color) =====
 const step3Controls = document.getElementById('step3-controls');
-const repaintBtn = document.getElementById('repaint-btn');
-const newCodeBtn = document.getElementById('new-code-btn');
+const step3Palette = document.getElementById('step3-palette');
+const confirmPaintBtn = document.getElementById('confirm-paint-btn');
+const step3Info = document.getElementById('step3-info');
 
 // ===== STATS DISPLAY (à côté du bouton tools) =====
 const statsDisplay = document.getElementById('stats-display');
@@ -107,7 +106,6 @@ async function init() {
     gridH = config.grid_h;
     palette = config.palette;
 
-    loadUserCodes();
     await loadState();
     setupPalette();
     setupMinimap();
@@ -119,6 +117,28 @@ async function init() {
         drawBackgroundFresque();
       }
     });
+
+    // Check for existing session
+    const savedUser = loadUserSession();
+    if (savedUser) {
+      // Try to restore session
+      try {
+        const res = await fetch('/api/user/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: savedUser.email })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          currentUser = data.user;
+          userCodes = data.codes;
+          showStep(2);
+          return;
+        }
+      } catch (err) {
+        console.error('Session restore error:', err);
+      }
+    }
 
     // Show step 1 by default
     showStep(1);
@@ -135,53 +155,64 @@ async function init() {
   }
 }
 
-// ===== LOCAL STORAGE FOR MULTI-CODE =====
-function loadUserCodes() {
-  const stored = localStorage.getItem('fresq_user_codes');
-  if (stored) {
-    try {
-      const data = JSON.parse(stored);
-      userCodes = new Map(Object.entries(data));
-      updateMyCellsPanel();
-    } catch (err) {
-      console.error('Error loading user codes:', err);
-    }
+// ===== USER SESSION MANAGEMENT =====
+function saveUserSession() {
+  if (currentUser) {
+    localStorage.setItem('fresq_user_session', JSON.stringify(currentUser));
   }
 }
 
-function saveUserCodes() {
-  const data = Object.fromEntries(userCodes);
-  localStorage.setItem('fresq_user_codes', JSON.stringify(data));
-  updateMyCellsPanel();
+function loadUserSession() {
+  const stored = localStorage.getItem('fresq_user_session');
+  if (stored) {
+    try {
+      return JSON.parse(stored);
+    } catch (err) {
+      console.error('Error loading user session:', err);
+      return null;
+    }
+  }
+  return null;
 }
 
-function updateMyCellsPanel() {
-  if (userCodes.size === 0) {
-    myCellsPanel.classList.add('hidden');
-    myCellsPanelCanvas.classList.add('hidden');
+function updateMyCodesList() {
+  if (!userCodes || userCodes.length === 0) {
+    myCodesList.innerHTML = '';
+    noCodesMsg.style.display = 'block';
     return;
   }
 
-  // Update both panels (step 1 and canvas screen)
-  const updatePanel = (listEl) => {
-    listEl.innerHTML = '';
-    userCodes.forEach((cell, code) => {
-      const div = document.createElement('div');
-      div.className = 'my-cell-item';
-      const colorHex = palette[cell.color - 1] || '#888';
-      div.innerHTML = `
-        <div style="display: flex; gap: 8px; align-items: center;">
-          <div style="width: 16px; height: 16px; background: ${colorHex}; border-radius: 3px;"></div>
-          <span>(${cell.x}, ${cell.y})</span>
-        </div>
-      `;
-      listEl.appendChild(div);
-    });
-  };
+  noCodesMsg.style.display = 'none';
+  myCodesList.innerHTML = '';
 
-  myCellsPanel.classList.remove('hidden');
-  updatePanel(myCellsList);
-  updatePanel(myCellsListCanvas);
+  userCodes.forEach((codeData) => {
+    const div = document.createElement('div');
+    div.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 10px; background: rgba(42, 63, 95, 0.3); border-radius: 6px; border: 1px solid #2a3f5f;';
+
+    const isPainted = codeData.x !== null && codeData.color !== null;
+    const colorHex = isPainted ? palette[codeData.color - 1] : '#888';
+
+    div.innerHTML = `
+      <div style="display: flex; gap: 12px; align-items: center; flex: 1;">
+        <div style="width: 20px; height: 20px; background: ${colorHex}; border-radius: 4px; border: 1px solid #444;"></div>
+        <span style="font-size: 13px; color: #aaa;">${codeData.code}</span>
+        ${isPainted ? `<span style="font-size: 12px; color: #666;">(${codeData.x}, ${codeData.y})</span>` : '<span style="font-size: 12px; color: #666;">Non assigné</span>'}
+      </div>
+      <button class="repaint-btn" data-code="${codeData.code}" style="padding: 6px 16px; font-size: 12px; background: linear-gradient(135deg, #2a4 0%, #1a3 100%); border: 1px solid #3b5; color: #fff; border-radius: 4px; cursor: pointer;">
+        ${isPainted ? '🎨 Repeindre' : '➕ Peindre'}
+      </button>
+    `;
+
+    myCodesList.appendChild(div);
+  });
+
+  // Add event listeners to repaint buttons
+  document.querySelectorAll('.repaint-btn').forEach(btn => {
+    btn.onclick = () => {
+      const code = btn.dataset.code;
+      startPaintingWithCode(code);
+    };
+  });
 }
 
 // ===== STEP NAVIGATION =====
@@ -195,34 +226,33 @@ function showStep(step) {
   step3Controls.classList.add('hidden');
   toolsMenuBtn.classList.add('hidden');
   statsDisplay.classList.add('hidden');
-  myCellsPanelCanvas.classList.add('hidden');
 
   if (step === 1) {
+    // Step 1: Email login
     step1Screen.classList.remove('hidden');
-    updateMyCellsPanel();
     drawBackgroundFresque();
   } else if (step === 2) {
+    // Step 2: Code management + grid view
     canvasScreen.classList.remove('hidden');
     step2Controls.classList.remove('hidden');
     toolsMenuBtn.classList.remove('hidden');
     statsDisplay.classList.remove('hidden');
-    myCellsPanelCanvas.classList.remove('hidden');
-    updateMyCellsPanel();
+    updateMyCodesList();
     setupCanvas();
     draw();
   } else if (step === 3) {
+    // Step 3: Cell selection + color palette
     canvasScreen.classList.remove('hidden');
     step3Controls.classList.remove('hidden');
     toolsMenuBtn.classList.remove('hidden');
     statsDisplay.classList.remove('hidden');
-    myCellsPanelCanvas.classList.remove('hidden');
-    updateMyCellsPanel();
     // Setup canvas if not already done
     if (!isZoomPanSetup) {
       setupCanvas();
     } else {
       resizeCanvas();
     }
+    updateConfirmButton();
     draw();
   }
 }
@@ -285,73 +315,149 @@ function showStep1Status(msg, type = 'info') {
   if (type === 'success') step1Status.classList.add('success');
 }
 
-// ===== STEP 1: CODE INPUT =====
-submitCodeBtn.onclick = async () => {
-  const code = codeInputStep1.value.trim().toUpperCase();
-  if (!code) return;
+// ===== STEP 1: EMAIL LOGIN =====
+submitEmailBtn.onclick = async () => {
+  const email = emailInputStep1.value.trim().toLowerCase();
+  if (!email) return;
+
+  // Basic email validation
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    showStep1Status('Email invalide', 'error');
+    return;
+  }
 
   try {
-    const res = await fetch('/api/code/validate', {
+    showStep1Status('Connexion...', 'info');
+
+    const res = await fetch('/api/user/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code })
+      body: JSON.stringify({ email })
     });
     const data = await res.json();
 
     if (!data.ok) {
-      showStep1Status('Code invalide', 'error');
+      showStep1Status('Erreur de connexion', 'error');
       return;
     }
 
-    currentCode = code;
+    currentUser = data.user;
+    userCodes = data.codes;
+    saveUserSession();
 
-    if (data.assigned) {
-      // Code already has a cell assigned
-      myCell = { x: data.assigned.x, y: data.assigned.y };
-
-      // Check if cell is painted
-      const key = `${myCell.x},${myCell.y}`;
-      const color = cells.get(key);
-
-      if (color) {
-        // Cell is painted, save to user codes and go to step 3
-        userCodes.set(code, { x: myCell.x, y: myCell.y, color });
-        saveUserCodes();
-        showStep(3);
-      } else {
-        // Cell claimed but not painted, go to step 2
-        showStep(2);
-      }
-    } else {
-      // New code, no cell assigned yet - go to step 2
-      showStep(2);
-    }
+    showStep1Status('Connexion réussie !', 'success');
+    setTimeout(() => showStep(2), 500);
   } catch (err) {
-    showStep1Status('Erreur de validation', 'error');
+    showStep1Status('Erreur de connexion', 'error');
     console.error(err);
   }
 };
 
-// Enter key to submit code
-codeInputStep1.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') submitCodeBtn.click();
+// Enter key to submit email
+emailInputStep1.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') submitEmailBtn.click();
 });
 
-// ===== STEP 2: CELL SELECTION =====
+// ===== STEP 2: CODE MANAGEMENT =====
+function showAddCodeStatus(msg, type = 'info') {
+  addCodeStatus.textContent = msg;
+  addCodeStatus.style.color = type === 'error' ? '#ff6b6b' : type === 'success' ? '#6FE6FF' : '#888';
+}
+
+// Add new code button
+addCodeBtn.onclick = async () => {
+  const code = newCodeInput.value.trim().toUpperCase();
+  if (!code) return;
+
+  if (!currentUser) {
+    showAddCodeStatus('Erreur: utilisateur non connecté', 'error');
+    return;
+  }
+
+  try {
+    showAddCodeStatus('Validation...', 'info');
+
+    const res = await fetch('/api/user/claim-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: currentUser.id, code })
+    });
+    const data = await res.json();
+
+    if (!data.ok) {
+      if (data.error === 'invalid_code') {
+        showAddCodeStatus('Code invalide', 'error');
+      } else if (data.error === 'code_already_owned') {
+        showAddCodeStatus('Code déjà utilisé par un autre utilisateur', 'error');
+      } else {
+        showAddCodeStatus('Erreur', 'error');
+      }
+      return;
+    }
+
+    // Add code to user's codes list
+    userCodes.push({
+      code: data.code,
+      x: data.assigned?.x || null,
+      y: data.assigned?.y || null,
+      color: data.assigned?.color || null
+    });
+
+    updateMyCodesList();
+    newCodeInput.value = '';
+    showAddCodeStatus('Code ajouté !', 'success');
+
+    // If code is already assigned, ask to repaint, otherwise start painting
+    if (data.assigned) {
+      showAddCodeStatus(`Code ajouté ! Case (${data.assigned.x}, ${data.assigned.y})`, 'success');
+    } else {
+      showAddCodeStatus('Code ajouté ! Clique sur "Peindre" pour choisir une case', 'success');
+    }
+  } catch (err) {
+    showAddCodeStatus('Erreur', 'error');
+    console.error(err);
+  }
+};
+
+// Enter key to add code
+newCodeInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') addCodeBtn.click();
+});
+
+// Function to start painting with a specific code
+function startPaintingWithCode(code) {
+  const codeData = userCodes.find(c => c.code === code);
+  if (!codeData) return;
+
+  currentCode = code;
+
+  if (codeData.x !== null) {
+    // Code has a cell assigned
+    myCell = { x: codeData.x, y: codeData.y };
+  } else {
+    // Code doesn't have a cell yet
+    myCell = null;
+  }
+
+  // Go to step 3
+  showStep(3);
+}
+
+// ===== STEP 3: CELL SELECTION + COLOR =====
 function setupPalette() {
-  step2Palette.innerHTML = '';
+  step3Palette.innerHTML = '';
   palette.forEach((color, i) => {
     const div = document.createElement('div');
     div.className = 'color';
     div.style.background = color;
     if (i === 0) div.classList.add('active');
     div.onclick = () => {
-      document.querySelectorAll('#step2-palette .color').forEach(d => d.classList.remove('active'));
+      document.querySelectorAll('#step3-palette .color').forEach(d => d.classList.remove('active'));
       div.classList.add('active');
       activeColor = i + 1;
       updateConfirmButton();
     };
-    step2Palette.appendChild(div);
+    step3Palette.appendChild(div);
   });
 }
 
@@ -359,10 +465,17 @@ function updateConfirmButton() {
   confirmPaintBtn.disabled = !myCell || !activeColor;
 }
 
+function showStep3Info(msg, type = 'info') {
+  step3Info.textContent = msg;
+  step3Info.style.color = type === 'error' ? '#ff6b6b' : type === 'success' ? '#6FE6FF' : '#888';
+}
+
 confirmPaintBtn.onclick = async () => {
   if (!currentCode || !myCell || !activeColor) return;
 
   try {
+    showStep3Info('Peinture en cours...', 'info');
+
     const res = await fetch('/api/cell/paint', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -371,8 +484,7 @@ confirmPaintBtn.onclick = async () => {
     const data = await res.json();
 
     if (!data.ok) {
-      step2Info.textContent = 'Erreur de peinture';
-      step2Info.style.color = '#ff6b6b';
+      showStep3Info('Erreur de peinture', 'error');
       return;
     }
 
@@ -381,28 +493,38 @@ confirmPaintBtn.onclick = async () => {
     cellTimestamps.set(key, Date.now());
     newCells.set(key, Date.now());
 
-    // Save to user codes
-    userCodes.set(currentCode, { x: data.x, y: data.y, color: data.color });
-    saveUserCodes();
+    // Update user codes list
+    const codeIndex = userCodes.findIndex(c => c.code === currentCode);
+    if (codeIndex !== -1) {
+      userCodes[codeIndex].x = data.x;
+      userCodes[codeIndex].y = data.y;
+      userCodes[codeIndex].color = data.color;
+    }
 
     updateCellsCount();
     draw();
 
-    // Go to step 3
-    showStep(3);
+    showStep3Info('Case peinte !', 'success');
+
+    // Go back to step 2 after short delay
+    setTimeout(() => {
+      currentCode = null;
+      myCell = null;
+      activeColor = 1;
+      showStep(2);
+    }, 1000);
   } catch (err) {
-    step2Info.textContent = 'Erreur de peinture';
-    step2Info.style.color = '#ff6b6b';
+    showStep3Info('Erreur de peinture', 'error');
     console.error(err);
   }
 };
 
+// Canvas click handler for step 3 (cell selection)
 canvas.onclick = async (e) => {
-  if (currentStep !== 2 || isPanning || isObserverMode) return;
+  if (currentStep !== 3 || isPanning || isObserverMode) return;
 
   if (!currentCode) {
-    step2Info.textContent = 'Erreur: pas de code';
-    step2Info.style.color = '#ff6b6b';
+    showStep3Info('Erreur: pas de code', 'error');
     return;
   }
 
@@ -411,13 +533,18 @@ canvas.onclick = async (e) => {
 
   if (x < 0 || y < 0 || x >= gridW || y >= gridH) return;
 
-  // If already have a cell, can't claim another
+  // If already have a cell, can repaint the same cell or show message
   if (myCell) {
-    step2Info.textContent = `Tu as déjà la case (${myCell.x}, ${myCell.y})`;
-    step2Info.style.color = '#888';
-    return;
+    if (myCell.x === x && myCell.y === y) {
+      showStep3Info(`Case (${x}, ${y}) sélectionnée - Choisis ta couleur`, 'success');
+      return;
+    } else {
+      showStep3Info(`Ce code possède déjà la case (${myCell.x}, ${myCell.y})`, 'info');
+      return;
+    }
   }
 
+  // Claim new cell
   try {
     const res = await fetch('/api/cell/claim', {
       method: 'POST',
@@ -427,14 +554,12 @@ canvas.onclick = async (e) => {
     const data = await res.json();
 
     if (!data.ok) {
-      step2Info.textContent = data.error === 'cell_taken' ? 'Case déjà prise' : 'Erreur';
-      step2Info.style.color = '#ff6b6b';
+      showStep3Info(data.error === 'cell_taken' ? 'Case déjà prise' : 'Erreur', 'error');
       return;
     }
 
     myCell = { x, y };
-    step2Info.textContent = `Case (${x}, ${y}) sélectionnée - Choisis ta couleur`;
-    step2Info.style.color = '#6FE6FF';
+    showStep3Info(`Case (${x}, ${y}) sélectionnée - Choisis ta couleur`, 'success');
     updateConfirmButton();
 
     // Center on claimed cell
@@ -442,25 +567,9 @@ canvas.onclick = async (e) => {
     offsetY = canvas.height / 2 - (myCell.y * CELL_SIZE + CELL_SIZE / 2) * scale;
     draw();
   } catch (err) {
-    step2Info.textContent = 'Erreur de sélection';
-    step2Info.style.color = '#ff6b6b';
+    showStep3Info('Erreur de sélection', 'error');
     console.error(err);
   }
-};
-
-// ===== STEP 3: VIEW MODE =====
-repaintBtn.onclick = () => {
-  // Go back to step 2 to repaint
-  showStep(2);
-};
-
-newCodeBtn.onclick = () => {
-  // Reset current session and go back to step 1
-  currentCode = null;
-  myCell = null;
-  activeColor = 1;
-  codeInputStep1.value = '';
-  showStep(1);
 };
 
 // ===== CANVAS SETUP =====

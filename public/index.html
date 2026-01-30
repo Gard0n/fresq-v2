@@ -613,19 +613,18 @@
 
     <!-- Content on top -->
     <div id="step1-content">
-      <h1>🎨 FRESQ V2.6</h1>
+      <h1>🎨 FRESQ V2.7</h1>
       <div class="subtitle">Fresque Collaborative - Step-by-Step</div>
       <div class="explanation">
         Bienvenue sur FRESQ, une fresque collaborative géante de 200×200 cases (40,000 pixels).
         <br><br>
-        Chaque code unique te donne accès à une case que tu pourras peindre avec 10 couleurs disponibles.
-        Tu peux repeindre ta case autant de fois que tu veux !
+        Entre ton email pour accéder à tes codes et participer à la fresque.
         <br><br>
-        Entre ton code pour commencer...
+        Tu pourras ensuite utiliser tes codes pour peindre des cases avec 10 couleurs disponibles !
       </div>
       <div class="code-input-box">
-        <input type="text" id="code-input-step1" placeholder="ABC-12345" />
-        <button id="submit-code-btn">Valider</button>
+        <input type="email" id="email-input-step1" placeholder="ton@email.com" />
+        <button id="submit-email-btn">Se connecter</button>
         <div id="step1-status" class="status-msg"></div>
       </div>
 
@@ -653,17 +652,33 @@
       </div>
     </div>
 
-    <!-- STEP 2 Controls -->
+    <!-- STEP 2 Controls: Code Management -->
     <div id="step2-controls" class="hidden">
-      <div id="step2-info">Choisis ta case et une couleur, puis confirme</div>
-      <div id="step2-palette"></div>
-      <button id="confirm-paint-btn" disabled>🎨 Confirmer</button>
+      <div style="display: flex; flex-direction: column; gap: 16px; width: 100%; max-width: 800px; margin: 0 auto;">
+        <!-- My Codes List -->
+        <div id="my-codes-section" style="background: rgba(26, 31, 46, 0.8); border-radius: 8px; padding: 16px;">
+          <h3 style="font-size: 14px; color: #6FE6FF; margin-bottom: 12px;">📌 Mes codes</h3>
+          <div id="my-codes-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 150px; overflow-y: auto;"></div>
+          <div id="no-codes-msg" style="color: #888; font-size: 13px; display: none;">Aucun code pour le moment. Ajoute-en un ci-dessous !</div>
+        </div>
+
+        <!-- Add New Code -->
+        <div style="background: rgba(26, 31, 46, 0.8); border-radius: 8px; padding: 16px;">
+          <h3 style="font-size: 14px; color: #6FE6FF; margin-bottom: 12px;">➕ Ajouter un code</h3>
+          <div style="display: flex; gap: 12px; align-items: center;">
+            <input type="text" id="new-code-input" placeholder="ABC-12345" style="flex: 1; padding: 12px; font-size: 14px; border: 1px solid #2a3f5f; background: rgba(26, 31, 46, 0.8); color: #fff; border-radius: 6px;">
+            <button id="add-code-btn" style="padding: 12px 24px; font-size: 14px; background: linear-gradient(135deg, #2a4 0%, #1a3 100%); border: 1px solid #3b5; color: #fff; border-radius: 6px; cursor: pointer; font-weight: 600;">Valider</button>
+          </div>
+          <div id="add-code-status" style="margin-top: 8px; font-size: 13px; min-height: 20px;"></div>
+        </div>
+      </div>
     </div>
 
-    <!-- STEP 3 Controls -->
+    <!-- STEP 3 Controls: Cell Selection + Color -->
     <div id="step3-controls" class="hidden">
-      <button class="primary" id="repaint-btn">🎨 Repeindre ma case</button>
-      <button id="new-code-btn">➕ Nouveau code</button>
+      <div id="step3-info">Choisis ta case sur la grille et une couleur, puis confirme</div>
+      <div id="step3-palette"></div>
+      <button id="confirm-paint-btn" disabled>🎨 Confirmer</button>
     </div>
   </div>
 

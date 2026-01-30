@@ -31,6 +31,141 @@ async function getConfig(client) {
   return res.rows[0];
 }
 
+// ===== USER AUTH API =====
+app.post("/api/user/login", async (req, res) => {
+  const email = req.body?.email?.trim().toLowerCase();
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: "invalid_email" });
+  }
+
+  const client = await pool.connect();
+  try {
+    // Get or create user
+    let userRes = await client.query(
+      "SELECT id, email FROM users WHERE email = $1",
+      [email]
+    );
+
+    let user;
+    if (userRes.rowCount === 0) {
+      // Create new user
+      const insertRes = await client.query(
+        "INSERT INTO users (email) VALUES ($1) RETURNING id, email",
+        [email]
+      );
+      user = insertRes.rows[0];
+    } else {
+      user = userRes.rows[0];
+    }
+
+    // Get all user's codes with cell info
+    const codesRes = await client.query(
+      "SELECT code, cell_x AS x, cell_y AS y, color FROM codes WHERE user_id = $1 ORDER BY updated_at DESC",
+      [user.id]
+    );
+
+    res.json({
+      ok: true,
+      user: {
+        id: user.id,
+        email: user.email
+      },
+      codes: codesRes.rows
+    });
+  } catch (err) {
+    console.error('User login error:', err);
+    res.status(500).json({ error: "login_error" });
+  } finally {
+    client.release();
+  }
+});
+
+app.post("/api/user/claim-code", async (req, res) => {
+  const userId = Number(req.body?.userId);
+  const code = normalizeCode(req.body?.code);
+
+  if (!userId || !code) {
+    return res.status(400).json({ error: "invalid_params" });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // Check if code exists and is valid
+    const codeRes = await client.query(
+      "SELECT id, user_id, cell_x, cell_y, color FROM codes WHERE code = $1 FOR UPDATE",
+      [code]
+    );
+
+    if (codeRes.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.json({ ok: false, error: "invalid_code" });
+    }
+
+    const codeRow = codeRes.rows[0];
+
+    // Check if code is already owned by another user
+    if (codeRow.user_id !== null && codeRow.user_id !== userId) {
+      await client.query("ROLLBACK");
+      return res.json({ ok: false, error: "code_already_owned" });
+    }
+
+    // Assign code to user if not already assigned
+    if (codeRow.user_id === null) {
+      await client.query(
+        "UPDATE codes SET user_id = $1, updated_at = NOW() WHERE id = $2",
+        [userId, codeRow.id]
+      );
+    }
+
+    await client.query("COMMIT");
+
+    res.json({
+      ok: true,
+      code,
+      assigned: codeRow.cell_x !== null ? {
+        x: codeRow.cell_x,
+        y: codeRow.cell_y,
+        color: codeRow.color
+      } : null
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error('Claim code error:', err);
+    res.status(500).json({ error: "claim_error" });
+  } finally {
+    client.release();
+  }
+});
+
+app.get("/api/user/codes/:userId", async (req, res) => {
+  const userId = Number(req.params.userId);
+
+  if (!userId) {
+    return res.status(400).json({ error: "invalid_user_id" });
+  }
+
+  const client = await pool.connect();
+  try {
+    const codesRes = await client.query(
+      "SELECT code, cell_x AS x, cell_y AS y, color FROM codes WHERE user_id = $1 ORDER BY updated_at DESC",
+      [userId]
+    );
+
+    res.json({
+      ok: true,
+      codes: codesRes.rows
+    });
+  } catch (err) {
+    console.error('Get user codes error:', err);
+    res.status(500).json({ error: "codes_error" });
+  } finally {
+    client.release();
+  }
+});
+
 // ===== PUBLIC API =====
 app.get("/api/config", async (req, res) => {
   const client = await pool.connect();

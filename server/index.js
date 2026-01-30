@@ -292,7 +292,7 @@ app.post("/api/user/claim-code", rateLimit(20, 60000), async (req, res) => { // 
     });
   } catch (err) {
     await client.query("ROLLBACK");
-    console.error('Claim code error:', err);
+    log('error', 'Claim code error', { error: err.message });
     res.status(500).json({ error: "claim_error" });
   } finally {
     client.release();
@@ -1294,6 +1294,9 @@ app.post("/api/admin/config/palette", requireAdmin, async (req, res) => {
     await client.query("UPDATE config SET state_version = state_version + 1 WHERE id = TRUE");
 
     await client.query("COMMIT");
+
+    // Invalidate config cache to force refresh
+    clearCache('config');
 
     // Broadcast palette update
     io.emit('palette_update', { palette });

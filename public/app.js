@@ -182,6 +182,12 @@ function showStep(step) {
   } else if (step === 3) {
     step3Screen.classList.remove('hidden');
     toolsMenuBtn.classList.remove('hidden');
+    // Setup canvas if not already done
+    if (!isZoomPanSetup) {
+      setupCanvas();
+    } else {
+      resizeCanvas();
+    }
     draw();
   }
 }
@@ -216,12 +222,23 @@ function drawBackgroundFresque() {
   backgroundCtx.translate(offsetX, offsetY);
   backgroundCtx.scale(scale, scale);
 
-  // Draw all painted cells
-  cells.forEach((color, key) => {
-    const [x, y] = key.split(',').map(Number);
-    backgroundCtx.fillStyle = palette[color - 1];
-    backgroundCtx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
-  });
+  // Draw all cells (gray for empty, colored for painted)
+  for (let y = 0; y < gridH; y++) {
+    for (let x = 0; x < gridW; x++) {
+      const key = `${x},${y}`;
+      const color = cells.get(key);
+
+      if (color) {
+        // Painted cell
+        backgroundCtx.fillStyle = palette[color - 1];
+      } else {
+        // Empty cell - gray
+        backgroundCtx.fillStyle = '#1a1a1a';
+      }
+
+      backgroundCtx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+    }
+  }
 
   backgroundCtx.restore();
 }

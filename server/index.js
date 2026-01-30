@@ -9,9 +9,26 @@ import { Server } from "socket.io";
 
 const app = express();
 const httpServer = createServer(app);
+
+// Allowed origins for CORS
+const allowedOrigins = [
+  'https://fresq-v2.onrender.com',
+  'http://localhost:3001',
+  'http://127.0.0.1:3001'
+];
+
 const io = new Server(httpServer, {
   cors: {
-    origin: "*",
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     methods: ["GET", "POST"]
   }
 });
@@ -23,6 +40,42 @@ app.use(express.json({ limit: "1mb" }));
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// ===== RATE LIMITING =====
+const rateLimitMap = new Map(); // key: ip:endpoint, value: { count, resetAt }
+
+function rateLimit(maxRequests, windowMs) {
+  return (req, res, next) => {
+    const ip = req.ip || req.connection.remoteAddress;
+    const key = `${ip}:${req.path}`;
+    const now = Date.now();
+
+    let record = rateLimitMap.get(key);
+
+    if (!record || now > record.resetAt) {
+      record = { count: 0, resetAt: now + windowMs };
+      rateLimitMap.set(key, record);
+    }
+
+    record.count++;
+
+    if (record.count > maxRequests) {
+      return res.status(429).json({ error: 'too_many_requests' });
+    }
+
+    next();
+  };
+}
+
+// Cleanup old rate limit records every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, record] of rateLimitMap.entries()) {
+    if (now > record.resetAt) {
+      rateLimitMap.delete(key);
+    }
+  }
+}, 5 * 60 * 1000);
+
 // ===== HELPERS =====
 async function getConfig(client) {
   const res = await client.query(
@@ -32,10 +85,18 @@ async function getConfig(client) {
 }
 
 // ===== USER AUTH API =====
-app.post("/api/user/login", async (req, res) => {
+app.post("/api/user/login", rateLimit(10, 60000), async (req, res) => { // 10 req/min
   const email = req.body?.email?.trim().toLowerCase();
 
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  // Improved email validation
+  if (!email || email.length > 254) {
+    return res.status(400).json({ error: "invalid_email" });
+  }
+
+  // RFC 5322 compliant email regex (simplified)
+  const emailRegex = /^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
+
+  if (!emailRegex.test(email)) {
     return res.status(400).json({ error: "invalid_email" });
   }
 
@@ -81,7 +142,7 @@ app.post("/api/user/login", async (req, res) => {
   }
 });
 
-app.post("/api/user/claim-code", async (req, res) => {
+app.post("/api/user/claim-code", rateLimit(20, 60000), async (req, res) => { // 20 req/min
   const userId = Number(req.body?.userId);
   const code = normalizeCode(req.body?.code);
 
@@ -92,6 +153,17 @@ app.post("/api/user/claim-code", async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+
+    // Check user's current code count
+    const userCodesCount = await client.query(
+      "SELECT COUNT(*)::int AS count FROM codes WHERE user_id = $1",
+      [userId]
+    );
+
+    if (userCodesCount.rows[0].count >= 20) {
+      await client.query("ROLLBACK");
+      return res.json({ ok: false, error: "max_codes_reached" });
+    }
 
     // Check if code exists and is valid
     const codeRes = await client.query(
@@ -234,7 +306,7 @@ app.post("/api/code/validate", async (req, res) => {
   }
 });
 
-app.post("/api/cell/claim", async (req, res) => {
+app.post("/api/cell/claim", rateLimit(30, 60000), async (req, res) => { // 30 req/min
   const code = normalizeCode(req.body?.code);
   const x = Number(req.body?.x);
   const y = Number(req.body?.y);
@@ -299,7 +371,7 @@ app.post("/api/cell/claim", async (req, res) => {
   }
 });
 
-app.post("/api/cell/paint", async (req, res) => {
+app.post("/api/cell/paint", rateLimit(30, 60000), async (req, res) => { // 30 req/min
   const code = normalizeCode(req.body?.code);
   const color = Number(req.body?.color);
 

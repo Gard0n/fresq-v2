@@ -43,6 +43,19 @@ let isConnected = false;
 // Setup flag
 let isZoomPanSetup = false;
 
+// ===== UTILITY FUNCTIONS =====
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
 // ===== SCREENS =====
 const step1Screen = document.getElementById('step1-screen');
 const canvasScreen = document.getElementById('canvas-screen');
@@ -88,6 +101,7 @@ const zoomResetOverlay = document.getElementById('zoom-reset-overlay');
 const magnifierToggleOverlay = document.getElementById('magnifier-toggle-overlay');
 const observerToggleOverlay = document.getElementById('observer-toggle-overlay');
 const exportPngOverlay = document.getElementById('export-png-overlay');
+const logoutBtn = document.getElementById('logout-btn');
 const closeToolsBtn = document.getElementById('close-tools-btn');
 
 // ===== SHARED ELEMENTS =====
@@ -111,12 +125,12 @@ async function init() {
     setupMinimap();
     connectWebSocket();
 
-    // Redraw background when window resizes
-    window.addEventListener('resize', () => {
+    // Redraw background when window resizes (debounced)
+    window.addEventListener('resize', debounce(() => {
       if (currentStep === 1) {
         drawBackgroundFresque();
       }
-    });
+    }, 150));
 
     // Check for existing session
     const savedUser = loadUserSession();
@@ -198,9 +212,14 @@ function updateMyCodesList() {
         <span style="font-size: 13px; color: #aaa;">${codeData.code}</span>
         ${isPainted ? `<span style="font-size: 12px; color: #666;">(${codeData.x}, ${codeData.y})</span>` : '<span style="font-size: 12px; color: #666;">Non assigné</span>'}
       </div>
-      <button class="repaint-btn" data-code="${codeData.code}" style="padding: 6px 16px; font-size: 12px; background: linear-gradient(135deg, #2a4 0%, #1a3 100%); border: 1px solid #3b5; color: #fff; border-radius: 4px; cursor: pointer;">
-        ${isPainted ? '🎨 Repeindre' : '➕ Peindre'}
-      </button>
+      <div style="display: flex; gap: 8px;">
+        <button class="repaint-btn" data-code="${codeData.code}" style="padding: 6px 16px; font-size: 12px; background: linear-gradient(135deg, #2a4 0%, #1a3 100%); border: 1px solid #3b5; color: #fff; border-radius: 4px; cursor: pointer;">
+          ${isPainted ? '🎨 Repeindre' : '➕ Peindre'}
+        </button>
+        <button class="delete-code-btn" data-code="${codeData.code}" style="padding: 6px 12px; font-size: 12px; background: rgba(255, 107, 107, 0.2); border: 1px solid #ff6b6b; color: #ff6b6b; border-radius: 4px; cursor: pointer;" title="Supprimer ce code">
+          🗑️
+        </button>
+      </div>
     `;
 
     myCodesList.appendChild(div);
@@ -211,6 +230,18 @@ function updateMyCodesList() {
     btn.onclick = () => {
       const code = btn.dataset.code;
       startPaintingWithCode(code);
+    };
+  });
+
+  // Add event listeners to delete buttons
+  document.querySelectorAll('.delete-code-btn').forEach(btn => {
+    btn.onclick = () => {
+      const code = btn.dataset.code;
+      if (confirm(`Supprimer le code ${code} de votre liste ?\n\nNote: Cela ne supprimera que le code de votre compte, pas la case peinte.`)) {
+        // Remove from userCodes array
+        userCodes = userCodes.filter(c => c.code !== code);
+        updateMyCodesList();
+      }
     };
   });
 }
@@ -238,7 +269,12 @@ function showStep(step) {
     toolsMenuBtn.classList.remove('hidden');
     statsDisplay.classList.remove('hidden');
     updateMyCodesList();
-    setupCanvas();
+    // Setup canvas only if not already done
+    if (!isZoomPanSetup) {
+      setupCanvas();
+    } else {
+      resizeCanvas();
+    }
     draw();
   } else if (step === 3) {
     // Step 3: Cell selection + color palette
@@ -389,6 +425,10 @@ addCodeBtn.onclick = async () => {
         showAddCodeStatus('Code invalide', 'error');
       } else if (data.error === 'code_already_owned') {
         showAddCodeStatus('Code déjà utilisé par un autre utilisateur', 'error');
+      } else if (data.error === 'max_codes_reached') {
+        showAddCodeStatus('Limite atteinte : maximum 20 codes par utilisateur', 'error');
+      } else if (data.error === 'too_many_requests') {
+        showAddCodeStatus('Trop de requêtes, attendez un instant', 'error');
       } else {
         showAddCodeStatus('Erreur', 'error');
       }
@@ -1081,6 +1121,22 @@ exportPngOverlay.onclick = () => {
   toolsOverlay.classList.remove('visible');
 };
 
+// Logout
+logoutBtn.onclick = () => {
+  if (confirm('Voulez-vous vraiment vous déconnecter ?')) {
+    localStorage.removeItem('fresq_user_session');
+    currentUser = null;
+    userCodes = [];
+    currentCode = null;
+    myCell = null;
+    activeColor = 1;
+    isZoomPanSetup = false;
+    emailInputStep1.value = '';
+    showStep(1);
+    toolsOverlay.classList.remove('visible');
+  }
+};
+
 // ===== WEBSOCKETS =====
 function connectWebSocket() {
   socket = io();
@@ -1121,6 +1177,63 @@ function connectWebSocket() {
     }
   });
 }
+
+// ===== BEFOREUNLOAD WARNING =====
+window.addEventListener('beforeunload', (e) => {
+  // Warn if user is in step 3 with a cell selected
+  if (currentStep === 3 && myCell) {
+    e.preventDefault();
+    e.returnValue = '';
+    return '';
+  }
+});
+
+// ===== KEYBOARD SHORTCUTS =====
+document.addEventListener('keydown', (e) => {
+  // Ignore if typing in input field
+  if (e.target.tagName === 'INPUT') return;
+
+  // Step 3: Color selection shortcuts (1-0)
+  if (currentStep === 3 && !e.ctrlKey && !e.metaKey) {
+    // Number keys 1-9, 0
+    if (e.key >= '1' && e.key <= '9') {
+      const colorIndex = parseInt(e.key) - 1;
+      if (colorIndex < palette.length) {
+        activeColor = colorIndex + 1;
+        document.querySelectorAll('#step3-palette .color').forEach((d, i) => {
+          d.classList.toggle('active', i === colorIndex);
+        });
+        updateConfirmButton();
+      }
+    } else if (e.key === '0' && palette.length >= 10) {
+      activeColor = 10;
+      document.querySelectorAll('#step3-palette .color').forEach((d, i) => {
+        d.classList.toggle('active', i === 9);
+      });
+      updateConfirmButton();
+    }
+
+    // Enter to confirm
+    if (e.key === 'Enter' && !confirmPaintBtn.disabled) {
+      confirmPaintBtn.click();
+    }
+
+    // Escape to cancel and go back to step 2
+    if (e.key === 'Escape') {
+      currentCode = null;
+      myCell = null;
+      activeColor = 1;
+      showStep(2);
+    }
+  }
+
+  // Step 2: Escape to go back to step 1 (logout)
+  if (currentStep === 2 && e.key === 'Escape') {
+    if (confirm('Retourner à la page de connexion ?')) {
+      showStep(1);
+    }
+  }
+});
 
 // ===== START =====
 init();

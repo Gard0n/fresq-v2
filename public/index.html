@@ -514,6 +514,37 @@
       display: none !important;
     }
 
+    /* === TRANSITIONS === */
+    #step1-screen, #canvas-screen {
+      animation: fadeIn 0.3s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    #step2-controls, #step3-controls {
+      animation: slideUp 0.3s ease-out;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
     /* Mobile optimizations */
     @media (max-width: 768px) {
       #step1-screen h1 {
@@ -613,12 +644,6 @@
         <button id="submit-email-btn">Se connecter</button>
         <div id="step1-status" class="status-msg"></div>
       </div>
-
-      <!-- My Cells Panel (shown when user has existing cells) -->
-      <div id="my-cells-panel" class="hidden">
-        <h3>📌 Mes cases peintes</h3>
-        <div id="my-cells-list"></div>
-      </div>
     </div>
   </div>
 
@@ -630,11 +655,6 @@
       <div id="coords-tooltip">x: -, y: -</div>
       <div id="magnifier">
         <canvas id="magnifier-canvas"></canvas>
-      </div>
-      <!-- My Cells Panel (shown when user has cells in steps 2 & 3) -->
-      <div id="my-cells-panel-canvas" class="hidden" style="position: fixed; top: 70px; left: 20px; background: rgba(26, 31, 46, 0.95); backdrop-filter: blur(10px); border: 1px solid #2a3f5f; border-radius: 8px; padding: 16px; max-width: 300px; z-index: 10;">
-        <h3 style="font-size: 14px; margin-bottom: 12px; color: #6FE6FF;">📌 Mes cases peintes</h3>
-        <div id="my-cells-list-canvas"></div>
       </div>
     </div>
 
@@ -735,6 +755,13 @@
         <h3>💾 EXPORT</h3>
         <div class="content">
           <button id="export-png-overlay">💾 Télécharger PNG</button>
+        </div>
+      </div>
+
+      <div class="tool-section">
+        <h3>👤 COMPTE</h3>
+        <div class="content">
+          <button id="logout-btn" style="background: rgba(255, 107, 107, 0.2); color: #ff6b6b;">🚪 Déconnexion</button>
         </div>
       </div>
 

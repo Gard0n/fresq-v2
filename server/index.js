@@ -734,6 +734,343 @@ app.get("/api/admin/export/full", requireAdmin, async (req, res) => {
   }
 });
 
+// ===== ADMIN: USER MANAGEMENT =====
+app.get("/api/admin/users", requireAdmin, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { search, page = 1, limit = 50 } = req.query;
+    const offset = (page - 1) * limit;
+
+    let query = `
+      SELECT
+        u.id,
+        u.email,
+        u.is_banned,
+        u.created_at,
+        COUNT(c.id)::int as codes_count,
+        COUNT(CASE WHEN c.cell_x IS NOT NULL THEN 1 END)::int as painted_count
+      FROM users u
+      LEFT JOIN codes c ON u.id = c.user_id
+    `;
+
+    const params = [];
+    if (search) {
+      query += " WHERE u.email ILIKE $1";
+      params.push(`%${search}%`);
+    }
+
+    query += " GROUP BY u.id ORDER BY u.created_at DESC LIMIT $" + (params.length + 1) + " OFFSET $" + (params.length + 2);
+    params.push(limit, offset);
+
+    const users = await client.query(query, params);
+
+    // Get total count
+    let countQuery = "SELECT COUNT(*)::int as count FROM users";
+    if (search) {
+      countQuery += " WHERE email ILIKE $1";
+    }
+    const totalCount = await client.query(countQuery, search ? [`%${search}%`] : []);
+
+    res.json({
+      ok: true,
+      users: users.rows,
+      total: totalCount.rows[0].count,
+      page: parseInt(page),
+      totalPages: Math.ceil(totalCount.rows[0].count / limit)
+    });
+  } catch (err) {
+    console.error('Admin users list error:', err);
+    res.status(500).json({ error: 'users_list_error' });
+  } finally {
+    client.release();
+  }
+});
+
+app.get("/api/admin/users/:userId", requireAdmin, async (req, res) => {
+  const userId = Number(req.params.userId);
+  const client = await pool.connect();
+
+  try {
+    const user = await client.query(
+      "SELECT id, email, is_banned, created_at FROM users WHERE id = $1",
+      [userId]
+    );
+
+    if (user.rowCount === 0) {
+      return res.status(404).json({ error: 'user_not_found' });
+    }
+
+    const codes = await client.query(
+      "SELECT code, cell_x as x, cell_y as y, color, created_at, updated_at FROM codes WHERE user_id = $1 ORDER BY updated_at DESC",
+      [userId]
+    );
+
+    res.json({
+      ok: true,
+      user: user.rows[0],
+      codes: codes.rows
+    });
+  } catch (err) {
+    console.error('Admin user detail error:', err);
+    res.status(500).json({ error: 'user_detail_error' });
+  } finally {
+    client.release();
+  }
+});
+
+app.post("/api/admin/users/:userId/ban", requireAdmin, async (req, res) => {
+  const userId = Number(req.params.userId);
+  const client = await pool.connect();
+
+  try {
+    await client.query(
+      "UPDATE users SET is_banned = TRUE WHERE id = $1",
+      [userId]
+    );
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Admin ban user error:', err);
+    res.status(500).json({ error: 'ban_error' });
+  } finally {
+    client.release();
+  }
+});
+
+app.post("/api/admin/users/:userId/unban", requireAdmin, async (req, res) => {
+  const userId = Number(req.params.userId);
+  const client = await pool.connect();
+
+  try {
+    await client.query(
+      "UPDATE users SET is_banned = FALSE WHERE id = $1",
+      [userId]
+    );
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Admin unban user error:', err);
+    res.status(500).json({ error: 'unban_error' });
+  } finally {
+    client.release();
+  }
+});
+
+app.post("/api/admin/users/:userId/clear-cells", requireAdmin, async (req, res) => {
+  const userId = Number(req.params.userId);
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // Get count before clearing
+    const countRes = await client.query(
+      "SELECT COUNT(*)::int AS count FROM codes WHERE user_id = $1 AND cell_x IS NOT NULL",
+      [userId]
+    );
+
+    // Clear cells
+    await client.query(
+      "UPDATE codes SET cell_x = NULL, cell_y = NULL, color = NULL WHERE user_id = $1",
+      [userId]
+    );
+
+    // Increment state version
+    await client.query("UPDATE config SET state_version = state_version + 1 WHERE id = TRUE");
+
+    await client.query("COMMIT");
+
+    res.json({ ok: true, clearedCount: countRes.rows[0].count });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error('Admin clear cells error:', err);
+    res.status(500).json({ error: 'clear_cells_error' });
+  } finally {
+    client.release();
+  }
+});
+
+// ===== ADMIN: ENHANCED STATS =====
+app.get("/api/admin/stats/detailed", requireAdmin, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    // Activity by day (last 7 days)
+    const activityByDay = await client.query(`
+      SELECT
+        DATE(updated_at) as date,
+        COUNT(*)::int as count
+      FROM codes
+      WHERE updated_at >= NOW() - INTERVAL '7 days' AND cell_x IS NOT NULL
+      GROUP BY DATE(updated_at)
+      ORDER BY date DESC
+    `);
+
+    // Recent activity (last 50 paints)
+    const recentActivity = await client.query(`
+      SELECT
+        c.code,
+        c.cell_x as x,
+        c.cell_y as y,
+        c.color,
+        c.updated_at,
+        u.email
+      FROM codes c
+      LEFT JOIN users u ON c.user_id = u.id
+      WHERE c.cell_x IS NOT NULL
+      ORDER BY c.updated_at DESC
+      LIMIT 50
+    `);
+
+    res.json({
+      ok: true,
+      activityByDay: activityByDay.rows,
+      recentActivity: recentActivity.rows
+    });
+  } catch (err) {
+    console.error('Admin detailed stats error:', err);
+    res.status(500).json({ error: 'stats_error' });
+  } finally {
+    client.release();
+  }
+});
+
+// ===== ADMIN: GRID MODERATION =====
+app.get("/api/admin/grid/cell/:x/:y", requireAdmin, async (req, res) => {
+  const x = Number(req.params.x);
+  const y = Number(req.params.y);
+  const client = await pool.connect();
+
+  try {
+    const cell = await client.query(
+      "SELECT c.code, c.user_id, u.email, c.color, c.updated_at FROM codes c LEFT JOIN users u ON c.user_id = u.id WHERE c.cell_x = $1 AND c.cell_y = $2",
+      [x, y]
+    );
+
+    if (cell.rowCount === 0) {
+      return res.json({ ok: true, cell: null });
+    }
+
+    res.json({ ok: true, cell: cell.rows[0] });
+  } catch (err) {
+    console.error('Admin cell info error:', err);
+    res.status(500).json({ error: 'cell_info_error' });
+  } finally {
+    client.release();
+  }
+});
+
+app.post("/api/admin/grid/cell/:x/:y/clear", requireAdmin, async (req, res) => {
+  const x = Number(req.params.x);
+  const y = Number(req.params.y);
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    await client.query(
+      "UPDATE codes SET cell_x = NULL, cell_y = NULL, color = NULL WHERE cell_x = $1 AND cell_y = $2",
+      [x, y]
+    );
+
+    // Increment state version
+    await client.query("UPDATE config SET state_version = state_version + 1 WHERE id = TRUE");
+
+    await client.query("COMMIT");
+
+    // Broadcast update via WebSocket
+    io.emit('cell_update', { x, y, color: 0 });
+
+    res.json({ ok: true });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error('Admin clear cell error:', err);
+    res.status(500).json({ error: 'clear_cell_error' });
+  } finally {
+    client.release();
+  }
+});
+
+app.post("/api/admin/grid/reset", requireAdmin, async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // Clear all cells
+    await client.query("UPDATE codes SET cell_x = NULL, cell_y = NULL, color = NULL");
+
+    // Increment state version
+    await client.query("UPDATE config SET state_version = state_version + 1 WHERE id = TRUE");
+
+    await client.query("COMMIT");
+
+    // Broadcast full reset
+    io.emit('full_reset');
+
+    res.json({ ok: true });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error('Admin reset grid error:', err);
+    res.status(500).json({ error: 'reset_grid_error' });
+  } finally {
+    client.release();
+  }
+});
+
+// ===== ADMIN: CONFIGURATION =====
+app.get("/api/admin/config", requireAdmin, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const config = await client.query("SELECT grid_w, grid_h, palette FROM config WHERE id = TRUE");
+    res.json({ ok: true, config: config.rows[0] });
+  } catch (err) {
+    console.error('Admin get config error:', err);
+    res.status(500).json({ error: 'config_error' });
+  } finally {
+    client.release();
+  }
+});
+
+app.post("/api/admin/config/palette", requireAdmin, async (req, res) => {
+  const { palette } = req.body;
+
+  if (!Array.isArray(palette) || palette.length !== 10) {
+    return res.status(400).json({ error: 'invalid_palette' });
+  }
+
+  // Validate hex colors
+  const hexRegex = /^#[0-9A-F]{6}$/i;
+  if (!palette.every(color => hexRegex.test(color))) {
+    return res.status(400).json({ error: 'invalid_colors' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    await client.query(
+      "UPDATE config SET palette = $1 WHERE id = TRUE",
+      [JSON.stringify(palette)]
+    );
+
+    // Increment state version
+    await client.query("UPDATE config SET state_version = state_version + 1 WHERE id = TRUE");
+
+    await client.query("COMMIT");
+
+    // Broadcast palette update
+    io.emit('palette_update', { palette });
+
+    res.json({ ok: true });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error('Admin update palette error:', err);
+    res.status(500).json({ error: 'update_palette_error' });
+  } finally {
+    client.release();
+  }
+});
+
 // ===== WEBSOCKET CONNECTION =====
 io.on('connection', (socket) => {
   console.log(`✅ Client connected: ${socket.id}`);

@@ -3,112 +3,646 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FRESQ V2 - Admin</title>
+  <title>FRESQ V2 - Admin Dashboard</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
     body {
-      background: #0a0e1a;
-      color: #fff;
-      font-family: system-ui, -apple-system, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #0a0e1a 0%, #1a1f2e 100%);
+      color: #e0e6ed;
+      min-height: 100vh;
+    }
+
+    /* ===== LOGIN SCREEN ===== */
+    #login-screen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
       padding: 20px;
     }
-    h1 { margin-bottom: 20px; }
+
+    .login-box {
+      background: rgba(26, 31, 46, 0.95);
+      border: 1px solid #2a3f5f;
+      border-radius: 12px;
+      padding: 40px;
+      max-width: 400px;
+      width: 100%;
+    }
+
+    .login-box h1 {
+      color: #6FE6FF;
+      margin-bottom: 10px;
+      font-size: 28px;
+    }
+
+    .login-box .subtitle {
+      color: #888;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 14px;
+      color: #aaa;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 12px;
+      background: rgba(10, 14, 26, 0.8);
+      border: 1px solid #2a3f5f;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 14px;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #6FE6FF;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, #2a4 0%, #1a3 100%);
+      border: 1px solid #3b5;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(42, 170, 68, 0.3);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .error-msg {
+      color: #ff6b6b;
+      font-size: 13px;
+      margin-top: 10px;
+    }
+
+    /* ===== DASHBOARD ===== */
+    #dashboard-screen {
+      display: none;
+      min-height: 100vh;
+    }
+
+    .dashboard-header {
+      background: rgba(26, 31, 46, 0.95);
+      border-bottom: 1px solid #2a3f5f;
+      padding: 20px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .dashboard-header h1 {
+      font-size: 24px;
+      color: #6FE6FF;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .admin-email {
+      color: #888;
+      font-size: 14px;
+    }
+
+    .btn-logout {
+      padding: 8px 16px;
+      background: rgba(255, 107, 107, 0.2);
+      border: 1px solid #ff6b6b;
+      border-radius: 6px;
+      color: #ff6b6b;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-logout:hover {
+      background: rgba(255, 107, 107, 0.3);
+    }
+
+    .dashboard-tabs {
+      background: rgba(26, 31, 46, 0.95);
+      border-bottom: 1px solid #2a3f5f;
+      display: flex;
+      gap: 0;
+      overflow-x: auto;
+      padding: 0 30px;
+    }
+
+    .tab {
+      padding: 16px 24px;
+      background: transparent;
+      border: none;
+      color: #888;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .tab:hover {
+      color: #6FE6FF;
+    }
+
+    .tab.active {
+      color: #6FE6FF;
+      border-bottom-color: #6FE6FF;
+    }
+
+    .dashboard-content {
+      padding: 30px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .tab-panel {
+      display: none;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    /* ===== STATS CARDS ===== */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .stat-card {
+      background: rgba(26, 31, 46, 0.8);
+      border: 1px solid #2a3f5f;
+      border-radius: 8px;
+      padding: 20px;
+    }
+
+    .stat-card h3 {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .stat-card .value {
+      font-size: 32px;
+      font-weight: 600;
+      color: #6FE6FF;
+      margin-bottom: 5px;
+    }
+
+    .stat-card .sub {
+      font-size: 13px;
+      color: #666;
+    }
+
+    /* ===== TABLES ===== */
     .section {
-      background: #1a1f2e;
+      background: rgba(26, 31, 46, 0.8);
+      border: 1px solid #2a3f5f;
+      border-radius: 8px;
       padding: 20px;
       margin-bottom: 20px;
-      border-radius: 8px;
     }
-    input, button, select {
-      padding: 10px;
-      margin: 5px;
-      border: 1px solid #444;
-      background: #0f1420;
+
+    .section h2 {
+      font-size: 18px;
+      color: #6FE6FF;
+      margin-bottom: 20px;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .toolbar input {
+      flex: 1;
+      min-width: 200px;
+      padding: 10px 12px;
+      background: rgba(10, 14, 26, 0.8);
+      border: 1px solid #2a3f5f;
+      border-radius: 6px;
       color: #fff;
-      border-radius: 4px;
+      font-size: 14px;
     }
-    button {
-      background: #2a4;
+
+    .toolbar button,
+    .toolbar select {
+      padding: 10px 16px;
+      background: rgba(42, 63, 95, 0.5);
+      border: 1px solid #2a3f5f;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .toolbar button:hover {
+      background: rgba(42, 63, 95, 0.8);
+    }
+
+    .toolbar button.primary {
+      background: linear-gradient(135deg, #2a4 0%, #1a3 100%);
+      border-color: #3b5;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead {
+      background: rgba(10, 14, 26, 0.5);
+    }
+
+    th {
+      padding: 12px;
+      text-align: left;
+      font-size: 13px;
+      color: #888;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    td {
+      padding: 12px;
+      border-top: 1px solid #2a3f5f;
+      font-size: 14px;
+    }
+
+    tr:hover {
+      background: rgba(42, 63, 95, 0.2);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .badge.success {
+      background: rgba(42, 170, 68, 0.2);
+      color: #2a4;
+    }
+
+    .badge.warning {
+      background: rgba(255, 170, 0, 0.2);
+      color: #fa0;
+    }
+
+    .badge.danger {
+      background: rgba(255, 107, 107, 0.2);
+      color: #ff6b6b;
+    }
+
+    .badge.info {
+      background: rgba(111, 230, 255, 0.2);
+      color: #6FE6FF;
+    }
+
+    .btn-sm {
+      padding: 6px 12px;
+      background: rgba(42, 63, 95, 0.5);
+      border: 1px solid #2a3f5f;
+      border-radius: 4px;
+      color: #fff;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-right: 6px;
+    }
+
+    .btn-sm:hover {
+      background: rgba(42, 63, 95, 0.8);
+    }
+
+    .btn-sm.danger {
+      background: rgba(255, 107, 107, 0.2);
+      border-color: #ff6b6b;
+      color: #ff6b6b;
+    }
+
+    .btn-sm.danger:hover {
+      background: rgba(255, 107, 107, 0.3);
+    }
+
+    /* ===== PALETTE EDITOR ===== */
+    .palette-editor {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .color-input-group {
+      text-align: center;
+    }
+
+    .color-input-group label {
+      display: block;
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 8px;
+    }
+
+    .color-input-group input[type="color"] {
+      width: 100%;
+      height: 60px;
+      border: 2px solid #2a3f5f;
+      border-radius: 6px;
+      cursor: pointer;
+      background: transparent;
+    }
+
+    .color-input-group input[type="text"] {
+      width: 100%;
+      margin-top: 8px;
+      padding: 6px;
+      background: rgba(10, 14, 26, 0.8);
+      border: 1px solid #2a3f5f;
+      border-radius: 4px;
+      color: #fff;
+      font-size: 12px;
+      text-align: center;
+      text-transform: uppercase;
+    }
+
+    /* ===== PAGINATION ===== */
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .pagination button {
+      padding: 8px 12px;
+      background: rgba(42, 63, 95, 0.5);
+      border: 1px solid #2a3f5f;
+      border-radius: 4px;
+      color: #fff;
+      font-size: 13px;
       cursor: pointer;
     }
-    button:hover { background: #3b5; }
-    #codes-list {
-      max-height: 400px;
-      overflow-y: auto;
-      background: #0f1420;
-      padding: 10px;
+
+    .pagination button:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .pagination span {
+      font-size: 13px;
+      color: #888;
+    }
+
+    /* ===== LOADING ===== */
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #888;
+    }
+
+    .empty {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+
+    /* ===== UTILITIES ===== */
+    .hidden {
+      display: none !important;
+    }
+
+    .text-center {
+      text-align: center;
+    }
+
+    .mb-20 {
+      margin-bottom: 20px;
+    }
+
+    .color-preview {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
       border-radius: 4px;
+      border: 1px solid #444;
+      vertical-align: middle;
+      margin-right: 6px;
     }
-    .code-item {
-      padding: 8px;
-      border-bottom: 1px solid #333;
-      font-family: monospace;
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 768px) {
+      .dashboard-header {
+        flex-direction: column;
+        gap: 15px;
+        align-items: flex-start;
+      }
+
+      .dashboard-content {
+        padding: 15px;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      table {
+        font-size: 12px;
+      }
+
+      th, td {
+        padding: 8px;
+      }
     }
-    #login-form { max-width: 400px; }
-    .hidden { display: none; }
   </style>
 </head>
 <body>
-  <div id="login-form">
-    <h1>FRESQ Admin - Login</h1>
-    <div class="section">
-      <input type="email" id="email" placeholder="Email" />
-      <input type="password" id="password" placeholder="Password" />
-      <button id="login-btn">Login</button>
-      <p id="login-status"></p>
+  <!-- LOGIN SCREEN -->
+  <div id="login-screen">
+    <div class="login-box">
+      <h1>🔐 Admin Dashboard</h1>
+      <p class="subtitle">FRESQ V2 Administration</p>
+
+      <form id="login-form">
+        <div class="form-group">
+          <label for="admin-email">Email</label>
+          <input type="email" id="admin-email" required autocomplete="username">
+        </div>
+
+        <div class="form-group">
+          <label for="admin-password">Password</label>
+          <input type="password" id="admin-password" required autocomplete="current-password">
+        </div>
+
+        <button type="submit" class="btn" id="login-btn">Se connecter</button>
+        <div id="login-error" class="error-msg"></div>
+      </form>
     </div>
   </div>
 
-  <div id="admin-panel" class="hidden">
-    <h1>FRESQ Admin</h1>
-
-    <div class="section">
-      <h2>Générer des codes</h2>
-      <input type="number" id="count" value="10" min="1" max="100" />
-      <button id="generate-btn">Générer</button>
-      <p id="generate-status"></p>
-    </div>
-
-    <div class="section">
-      <h2>Codes générés</h2>
-      <button id="refresh-btn">Rafraîchir</button>
-      <button id="download-btn">Télécharger (TXT)</button>
-      <div id="codes-list"></div>
-    </div>
-
-    <div class="section">
-      <h2>Stats</h2>
-      <p>Total codes: <span id="total-codes">-</span></p>
-      <p>Codes assignés: <span id="assigned-codes">-</span></p>
-    </div>
-
-    <div class="section">
-      <h2>Modération</h2>
-      <p style="color: #888; margin-bottom: 10px;">Gérer les cellules peintes</p>
-      <button id="load-cells-btn">Charger les cellules</button>
-      <div style="margin-top: 10px;">
-        <label>
-          Filtrer par position:
-          <input type="number" id="filter-x" placeholder="X" style="width: 80px;" />
-          <input type="number" id="filter-y" placeholder="Y" style="width: 80px;" />
-          <button id="filter-btn">Filtrer</button>
-          <button id="clear-filter-btn">Tout</button>
-        </label>
-      </div>
-      <div id="cells-grid" style="margin-top: 10px; max-height: 500px; overflow-y: auto; background: #0f1420; padding: 10px; border-radius: 4px;">
-        <p style="color: #888;">Cliquez sur "Charger les cellules" pour voir les cellules peintes</p>
+  <!-- DASHBOARD SCREEN -->
+  <div id="dashboard-screen">
+    <div class="dashboard-header">
+      <h1>📊 Admin Dashboard</h1>
+      <div class="header-actions">
+        <span class="admin-email" id="admin-email-display"></span>
+        <button class="btn-logout" id="logout-btn">🚪 Déconnexion</button>
       </div>
     </div>
 
-    <div class="section">
-      <h2>Export</h2>
-      <p style="color: #888; margin-bottom: 10px;">Exporter les données du projet</p>
-      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-        <button id="export-codes-csv">📄 Codes (CSV)</button>
-        <button id="export-codes-json">📄 Codes (JSON)</button>
-        <button id="export-cells-csv">🎨 Cellules (CSV)</button>
-        <button id="export-cells-json">🎨 Cellules (JSON)</button>
-        <button id="export-full-json">💾 Export Complet (JSON)</button>
+    <div class="dashboard-tabs">
+      <button class="tab active" data-tab="dashboard">📊 Dashboard</button>
+      <button class="tab" data-tab="users">👥 Utilisateurs</button>
+      <button class="tab" data-tab="codes">🎫 Codes</button>
+      <button class="tab" data-tab="grid">🎨 Grille</button>
+      <button class="tab" data-tab="config">⚙️ Configuration</button>
+    </div>
+
+    <div class="dashboard-content">
+      <!-- TAB: Dashboard -->
+      <div class="tab-panel active" id="panel-dashboard">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <h3>Utilisateurs</h3>
+            <div class="value" id="stat-users">-</div>
+            <div class="sub">Total inscrits</div>
+          </div>
+          <div class="stat-card">
+            <h3>Codes</h3>
+            <div class="value" id="stat-codes">-</div>
+            <div class="sub"><span id="stat-claimed">-</span> réclamés</div>
+          </div>
+          <div class="stat-card">
+            <h3>Cases peintes</h3>
+            <div class="value" id="stat-painted">-</div>
+            <div class="sub"><span id="stat-percent">0%</span> de la grille</div>
+          </div>
+          <div class="stat-card">
+            <h3>Dernières 24h</h3>
+            <div class="value" id="stat-24h">-</div>
+            <div class="sub">Nouvelles cases</div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>📈 Activité récente (50 dernières peintures)</h2>
+          <div id="recent-activity-container">
+            <div class="loading">Chargement...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: Users -->
+      <div class="tab-panel" id="panel-users">
+        <div class="section">
+          <h2>👥 Gestion des utilisateurs</h2>
+
+          <div class="toolbar">
+            <input type="text" id="users-search" placeholder="Rechercher par email...">
+            <button id="users-search-btn">🔍 Rechercher</button>
+          </div>
+
+          <div id="users-table-container">
+            <div class="loading">Chargement...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: Codes -->
+      <div class="tab-panel" id="panel-codes">
+        <div class="section">
+          <h2>🎫 Gestion des codes</h2>
+
+          <div class="toolbar">
+            <select id="codes-filter">
+              <option value="all">Tous les codes</option>
+              <option value="unclaimed">Non réclamés</option>
+              <option value="claimed">Réclamés</option>
+              <option value="painted">Avec case peinte</option>
+              <option value="unpainted">Sans case peinte</option>
+            </select>
+            <button id="codes-filter-btn">🔍 Filtrer</button>
+            <div style="flex: 1"></div>
+            <input type="number" id="generate-count" placeholder="Nombre" min="1" max="10000" value="100" style="width: 120px;">
+            <button id="generate-codes-btn" class="primary">➕ Générer codes</button>
+            <button id="export-codes-btn">💾 Exporter CSV</button>
+          </div>
+
+          <div id="codes-table-container">
+            <div class="loading">Chargement...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: Grid -->
+      <div class="tab-panel" id="panel-grid">
+        <div class="section">
+          <h2>🎨 Modération de la grille</h2>
+
+          <div class="toolbar">
+            <input type="number" id="cell-x" placeholder="X" min="0" max="199" style="width: 80px;">
+            <input type="number" id="cell-y" placeholder="Y" min="0" max="199" style="width: 80px;">
+            <button id="view-cell-btn">👁️ Voir case</button>
+            <button id="clear-cell-btn" class="danger">🗑️ Effacer case</button>
+            <div style="flex: 1"></div>
+            <button id="reset-grid-btn" class="danger">⚠️ Réinitialiser grille</button>
+          </div>
+
+          <div id="cell-info-container"></div>
+        </div>
+      </div>
+
+      <!-- TAB: Config -->
+      <div class="tab-panel" id="panel-config">
+        <div class="section">
+          <h2>🎨 Configuration de la palette</h2>
+
+          <div class="palette-editor" id="palette-editor"></div>
+
+          <button id="save-palette-btn" class="btn">💾 Enregistrer la palette</button>
+        </div>
       </div>
     </div>
   </div>

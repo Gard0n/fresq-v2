@@ -907,6 +907,129 @@
         opacity: 0.7;
       }
     }
+
+    /* ===== TUTORIAL OVERLAY ===== */
+    #tutorial-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 10000;
+      display: none;
+      backdrop-filter: blur(4px);
+    }
+
+    #tutorial-overlay.visible {
+      display: block;
+    }
+
+    .tutorial-spotlight {
+      position: absolute;
+      border: 3px solid var(--accent);
+      border-radius: 8px;
+      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.85), 0 0 40px var(--accent);
+      pointer-events: none;
+      transition: all 0.4s ease;
+      animation: spotlightPulse 2s infinite;
+    }
+
+    @keyframes spotlightPulse {
+      0%, 100% { box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.85), 0 0 40px var(--accent); }
+      50% { box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.85), 0 0 60px var(--accent); }
+    }
+
+    .tutorial-tooltip {
+      position: absolute;
+      background: var(--bg-secondary);
+      border: 2px solid var(--accent);
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 400px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      animation: tooltipBounce 0.4s ease;
+    }
+
+    @keyframes tooltipBounce {
+      0% { transform: translateY(20px); opacity: 0; }
+      100% { transform: translateY(0); opacity: 1; }
+    }
+
+    .tutorial-tooltip h3 {
+      color: var(--accent);
+      margin-bottom: 12px;
+      font-size: 20px;
+    }
+
+    .tutorial-tooltip p {
+      color: var(--text-secondary);
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+
+    .tutorial-controls {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+
+    .tutorial-btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .tutorial-btn-skip {
+      background: transparent;
+      color: var(--text-tertiary);
+      border: 1px solid var(--border);
+    }
+
+    .tutorial-btn-skip:hover {
+      background: var(--bg-tertiary);
+    }
+
+    .tutorial-btn-next {
+      background: var(--accent);
+      color: #000;
+    }
+
+    .tutorial-btn-next:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(111, 230, 255, 0.4);
+    }
+
+    .tutorial-progress {
+      text-align: center;
+      margin-bottom: 16px;
+      color: var(--text-tertiary);
+      font-size: 13px;
+    }
+
+    .tutorial-dots {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+
+    .tutorial-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--border);
+      transition: all 0.3s;
+    }
+
+    .tutorial-dot.active {
+      background: var(--accent);
+      width: 24px;
+      border-radius: 4px;
+    }
   </style>
 </head>
 <body>
@@ -1062,6 +1185,12 @@
 
       <button id="close-tools-btn">✕ Fermer</button>
     </div>
+  </div>
+
+  <!-- Tutorial Overlay -->
+  <div id="tutorial-overlay">
+    <div id="tutorial-spotlight" class="tutorial-spotlight"></div>
+    <div id="tutorial-tooltip" class="tutorial-tooltip"></div>
   </div>
 
   <!-- Toast Notifications Container -->

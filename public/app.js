@@ -22,6 +22,10 @@ let magnifierActive = false;
 // Theme state
 let currentTheme = localStorage.getItem('fresq_theme') || 'dark';
 
+// Tutorial state
+let tutorialCompleted = localStorage.getItem('fresq_tutorial_completed') === 'true';
+let currentTutorialStep = 0;
+
 // Canvas & rendering
 const canvas = document.getElementById('grid');
 const ctx = canvas.getContext('2d');
@@ -177,6 +181,127 @@ function createCellEffects(x, y, color) {
   draw();
 }
 
+// ===== TUTORIAL SYSTEM =====
+const tutorialSteps = [
+  {
+    title: "Bienvenue sur FRESQ V2! 👋",
+    content: "FRESQ est une fresque collaborative de 200×200 pixels. Chaque utilisateur peut peindre une case de la couleur de son choix!",
+    highlight: null,
+    position: { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }
+  },
+  {
+    title: "Étape 1: Email 📧",
+    content: "Commence par entrer ton email pour te connecter. Tu recevras un lien de connexion sécurisé.",
+    highlight: '#email-input-step1',
+    position: { top: '60%', left: '50%', transform: 'translate(-50%, 0)' }
+  },
+  {
+    title: "Étape 2: Codes 🎫",
+    content: "Une fois connecté, tu peux ajouter des codes pour réclamer des cases. Chaque code te donne droit à une case sur la grille!",
+    highlight: '#step2-controls',
+    position: { top: '20%', left: '50%', transform: 'translate(-50%, 0)' }
+  },
+  {
+    title: "Étape 3: Peindre 🎨",
+    content: "Clique sur une case de la grille pour la réclamer, choisis ta couleur, puis valide ta peinture!",
+    highlight: '#canvas-screen',
+    position: { top: '60%', left: '50%', transform: 'translate(-50%, 0)' }
+  },
+  {
+    title: "Navigation 🧭",
+    content: "Utilise le menu outils (⚙️) pour accéder aux statistiques, zoom, minimap et plus encore!",
+    highlight: '#tools-menu-btn',
+    position: { top: '80px', left: '20px' }
+  },
+  {
+    title: "C'est parti! 🚀",
+    content: "Tu es prêt à contribuer à la fresque! Amuse-toi bien et sois créatif! 🎨",
+    highlight: null,
+    position: { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }
+  }
+];
+
+function startTutorial() {
+  if (tutorialCompleted) return;
+
+  currentTutorialStep = 0;
+  document.getElementById('tutorial-overlay').classList.add('visible');
+  showTutorialStep(0);
+}
+
+function showTutorialStep(stepIndex) {
+  const step = tutorialSteps[stepIndex];
+  const overlay = document.getElementById('tutorial-overlay');
+  const spotlight = document.getElementById('tutorial-spotlight');
+  const tooltip = document.getElementById('tutorial-tooltip');
+
+  // Position spotlight on highlighted element
+  if (step.highlight) {
+    const element = document.querySelector(step.highlight);
+    if (element) {
+      const rect = element.getBoundingClientRect();
+      spotlight.style.display = 'block';
+      spotlight.style.top = rect.top - 10 + 'px';
+      spotlight.style.left = rect.left - 10 + 'px';
+      spotlight.style.width = rect.width + 20 + 'px';
+      spotlight.style.height = rect.height + 20 + 'px';
+    } else {
+      spotlight.style.display = 'none';
+    }
+  } else {
+    spotlight.style.display = 'none';
+  }
+
+  // Create dots for progress
+  const dots = tutorialSteps.map((_, i) => `
+    <div class="tutorial-dot ${i === stepIndex ? 'active' : ''}"></div>
+  `).join('');
+
+  // Position and fill tooltip
+  tooltip.innerHTML = `
+    <div class="tutorial-dots">${dots}</div>
+    <h3>${step.title}</h3>
+    <p>${step.content}</p>
+    <div class="tutorial-controls">
+      <button class="tutorial-btn tutorial-btn-skip" onclick="skipTutorial()">
+        ${stepIndex === tutorialSteps.length - 1 ? 'Terminer' : 'Passer'}
+      </button>
+      ${stepIndex < tutorialSteps.length - 1 ? `
+        <button class="tutorial-btn tutorial-btn-next" onclick="nextTutorialStep()">
+          Suivant →
+        </button>
+      ` : ''}
+    </div>
+  `;
+
+  Object.assign(tooltip.style, step.position);
+}
+
+function nextTutorialStep() {
+  hapticFeedback('light');
+  currentTutorialStep++;
+  if (currentTutorialStep < tutorialSteps.length) {
+    showTutorialStep(currentTutorialStep);
+  } else {
+    endTutorial();
+  }
+}
+
+function skipTutorial() {
+  hapticFeedback('light');
+  endTutorial();
+}
+
+function endTutorial() {
+  document.getElementById('tutorial-overlay').classList.remove('visible');
+  localStorage.setItem('fresq_tutorial_completed', 'true');
+  tutorialCompleted = true;
+}
+
+// Make functions global for onclick handlers
+window.nextTutorialStep = nextTutorialStep;
+window.skipTutorial = skipTutorial;
+
 // ===== SCREENS =====
 const step1Screen = document.getElementById('step1-screen');
 const canvasScreen = document.getElementById('canvas-screen');
@@ -281,6 +406,13 @@ async function init() {
 
     // Show step 1 by default
     showStep(1);
+
+    // Start tutorial for first-time users
+    if (!tutorialCompleted) {
+      setTimeout(() => {
+        startTutorial();
+      }, 1000); // Delay 1s to let the UI settle
+    }
 
     // Force redraw background after a short delay to ensure everything is loaded
     setTimeout(() => {

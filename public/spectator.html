@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0a0e1a">
+  <title>FRESQ V2 - Mode Spectateur</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0e1a;
+      color: #fff;
+      font-family: system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+      height: 100vh;
+    }
+    #canvas-container {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    #grid {
+      border: 1px solid #2a3f5f;
+      background: #1a1f2e;
+      cursor: grab;
+    }
+    #grid:active { cursor: grabbing; }
+    .overlay-info {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      background: rgba(26, 31, 46, 0.9);
+      padding: 16px 24px;
+      border-radius: 12px;
+      border: 1px solid #2a3f5f;
+      backdrop-filter: blur(10px);
+      z-index: 100;
+    }
+    .overlay-info h1 {
+      font-size: 18px;
+      color: #6FE6FF;
+      margin-bottom: 8px;
+    }
+    .overlay-info p {
+      color: #888;
+      font-size: 14px;
+    }
+    .cta-btn {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 16px 32px;
+      background: linear-gradient(135deg, #2a4 0%, #1a3 100%);
+      border: 1px solid #3b5;
+      border-radius: 8px;
+      color: #fff;
+      text-decoration: none;
+      font-weight: 600;
+      transition: all 0.2s;
+      z-index: 100;
+    }
+    .cta-btn:hover {
+      transform: translateX(-50%) translateY(-2px);
+      box-shadow: 0 4px 16px rgba(42, 170, 68, 0.4);
+    }
+    .stats-badge {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(26, 31, 46, 0.9);
+      padding: 12px 20px;
+      border-radius: 8px;
+      border: 1px solid #2a3f5f;
+      color: #6FE6FF;
+      font-size: 14px;
+      z-index: 100;
+    }
+  </style>
+</head>
+<body>
+  <div class="overlay-info">
+    <h1>🎨 FRESQ V2 - Mode Spectateur</h1>
+    <p>Fresque collaborative en temps réel</p>
+  </div>
+  
+  <div class="stats-badge" id="stats-badge">
+    <span id="painted-count">-</span> / 40,000 cases peintes
+  </div>
+
+  <div id="canvas-container">
+    <canvas id="grid"></canvas>
+  </div>
+
+  <a href="/" class="cta-btn">🚀 Participer à la Fresque</a>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const canvas = document.getElementById('grid');
+    const ctx = canvas.getContext('2d');
+    const CELL_SIZE = 3;
+    let gridW = 200, gridH = 200;
+    let cells = new Map();
+    let palette = [];
+    let scale = 1;
+    let offsetX = 0, offsetY = 0;
+    let isPanning = false;
+    let panStart = { x: 0, y: 0 };
+
+    function resizeCanvas() {
+      const container = canvas.parentElement;
+      const rect = container.getBoundingClientRect();
+      canvas.width = rect.width - 4;
+      canvas.height = rect.height - 4;
+      offsetX = (canvas.width - gridW * CELL_SIZE) / 2;
+      offsetY = (canvas.height - gridH * CELL_SIZE) / 2;
+      draw();
+    }
+
+    function draw() {
+      ctx.fillStyle = '#0a0e1a';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      ctx.translate(offsetX, offsetY);
+      ctx.scale(scale, scale);
+
+      // Empty cells
+      for (let y = 0; y < gridH; y++) {
+        for (let x = 0; x < gridW; x++) {
+          if (!cells.has(`${x},${y}`)) {
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+          }
+        }
+      }
+
+      // Painted cells
+      cells.forEach((color, key) => {
+        const [x, y] = key.split(',').map(Number);
+        ctx.fillStyle = palette[color - 1] || '#888';
+        ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+      });
+
+      ctx.restore();
+    }
+
+    // Touch & Mouse pan
+    canvas.addEventListener('mousedown', (e) => {
+      isPanning = true;
+      panStart = { x: e.clientX - offsetX, y: e.clientY - offsetY };
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (isPanning) {
+        offsetX = e.clientX - panStart.x;
+        offsetY = e.clientY - panStart.y;
+        draw();
+      }
+    });
+
+    canvas.addEventListener('mouseup', () => isPanning = false);
+    canvas.addEventListener('mouseleave', () => isPanning = false);
+
+    // Touch
+    canvas.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        isPanning = true;
+        const touch = e.touches[0];
+        panStart = { x: touch.clientX - offsetX, y: touch.clientY - offsetY };
+        e.preventDefault();
+      }
+    });
+
+    canvas.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 1 && isPanning) {
+        const touch = e.touches[0];
+        offsetX = touch.clientX - panStart.x;
+        offsetY = touch.clientY - panStart.y;
+        draw();
+        e.preventDefault();
+      }
+    });
+
+    canvas.addEventListener('touchend', () => isPanning = false);
+
+    // Zoom
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+      const worldX = (mouseX - offsetX) / scale;
+      const worldY = (mouseY - offsetY) / scale;
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      const newScale = Math.max(0.5, Math.min(10, scale * delta));
+      offsetX = mouseX - worldX * newScale;
+      offsetY = mouseY - worldY * newScale;
+      scale = newScale;
+      draw();
+    });
+
+    // Load data
+    async function init() {
+      try {
+        const configRes = await fetch('/api/config');
+        const config = await configRes.json();
+        palette = config.palette;
+
+        const stateRes = await fetch('/api/state');
+        const state = await stateRes.json();
+        state.cells.forEach(cell => {
+          cells.set(`${cell.x},${cell.y}`, cell.color);
+        });
+
+        document.getElementById('painted-count').textContent = cells.size.toLocaleString();
+        resizeCanvas();
+
+        // WebSocket
+        const socket = io();
+        socket.on('cell:painted', (data) => {
+          cells.set(`${data.x},${data.y}`, data.color);
+          document.getElementById('painted-count').textContent = cells.size.toLocaleString();
+          draw();
+        });
+      } catch (err) {
+        console.error('Init error:', err);
+      }
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    init();
+  </script>
+</body>
+</html>

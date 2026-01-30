@@ -1177,6 +1177,26 @@
       </div>
 
       <div class="tool-section">
+        <h3>📜 HISTORIQUE</h3>
+        <div class="content">
+          <div id="cell-history-info" style="font-size: 13px; color: #888; margin-bottom: 8px;">
+            Clique sur une case pour voir son historique
+          </div>
+          <button id="view-cell-history-btn" disabled>🔍 Voir l'historique de la case</button>
+        </div>
+      </div>
+
+      <div class="tool-section">
+        <h3>📤 PARTAGE</h3>
+        <div class="content">
+          <button onclick="shareOnTwitter()">🐦 Partager sur Twitter</button>
+          <button onclick="shareOnFacebook()">📘 Partager sur Facebook</button>
+          <button onclick="shareOnLinkedIn()">💼 Partager sur LinkedIn</button>
+          <button onclick="copyShareLink()">🔗 Copier le lien</button>
+        </div>
+      </div>
+
+      <div class="tool-section">
         <h3>👤 COMPTE</h3>
         <div class="content">
           <button id="logout-btn" style="background: rgba(255, 107, 107, 0.2); color: #ff6b6b;">🚪 Déconnexion</button>
@@ -1197,6 +1217,7 @@
   <div id="toast-container"></div>
 
   <script src="/socket.io/socket.io.js"></script>
+  <script src="/share.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

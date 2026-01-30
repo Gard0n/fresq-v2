@@ -76,6 +76,100 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
+// ===== IN-MEMORY CACHE =====
+const cache = new Map();
+
+function setCache(key, value, ttlMs = 60000) {
+  cache.set(key, {
+    value,
+    expiresAt: Date.now() + ttlMs
+  });
+}
+
+function getCache(key) {
+  const entry = cache.get(key);
+  if (!entry) return null;
+
+  if (Date.now() > entry.expiresAt) {
+    cache.delete(key);
+    return null;
+  }
+
+  return entry.value;
+}
+
+function clearCache(key) {
+  if (key) {
+    cache.delete(key);
+  } else {
+    cache.clear();
+  }
+}
+
+// Cleanup expired cache entries every minute
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of cache.entries()) {
+    if (now > entry.expiresAt) {
+      cache.delete(key);
+    }
+  }
+}, 60 * 1000);
+
+// ===== ANALYTICS & LOGGING =====
+const analytics = {
+  events: [],
+  maxEvents: 1000 // Keep last 1000 events in memory
+};
+
+function trackEvent(category, action, label = null, value = null) {
+  const event = {
+    timestamp: new Date().toISOString(),
+    category,
+    action,
+    label,
+    value
+  };
+
+  analytics.events.push(event);
+
+  // Keep only last maxEvents
+  if (analytics.events.length > analytics.maxEvents) {
+    analytics.events.shift();
+  }
+
+  // Log to console in development
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[ANALYTICS] ${category}:${action}`, label || '', value || '');
+  }
+}
+
+function log(level, message, meta = {}) {
+  const logEntry = {
+    timestamp: new Date().toISOString(),
+    level,
+    message,
+    ...meta
+  };
+
+  // Always log to console with color coding
+  const colors = {
+    error: '\x1b[31m', // Red
+    warn: '\x1b[33m',  // Yellow
+    info: '\x1b[36m',  // Cyan
+    debug: '\x1b[90m'  // Gray
+  };
+  const reset = '\x1b[0m';
+  const color = colors[level] || '';
+
+  console.log(`${color}[${level.toUpperCase()}]${reset} ${message}`, meta);
+
+  // Track errors and warnings as analytics events
+  if (level === 'error' || level === 'warn') {
+    trackEvent('system', level, message);
+  }
+}
+
 // ===== HELPERS =====
 async function getConfig(client) {
   const res = await client.query(
@@ -126,6 +220,10 @@ app.post("/api/user/login", rateLimit(10, 60000), async (req, res) => { // 10 re
       [user.id]
     );
 
+    // Track login event
+    trackEvent('user', 'login', user.email, codesRes.rows.length);
+    log('info', 'User login', { email: user.email, codesCount: codesRes.rows.length });
+
     res.json({
       ok: true,
       user: {
@@ -135,7 +233,7 @@ app.post("/api/user/login", rateLimit(10, 60000), async (req, res) => { // 10 re
       codes: codesRes.rows
     });
   } catch (err) {
-    console.error('User login error:', err);
+    log('error', 'User login error', { error: err.message });
     res.status(500).json({ error: "login_error" });
   } finally {
     client.release();
@@ -229,15 +327,27 @@ app.get("/api/user/codes/:userId", async (req, res) => {
 
 // ===== PUBLIC API =====
 app.get("/api/config", async (req, res) => {
+  // Try to get from cache first
+  const cached = getCache('config');
+  if (cached) {
+    return res.json(cached);
+  }
+
   const client = await pool.connect();
   try {
     const config = await getConfig(client);
-    res.json({
+    const response = {
       grid_w: config.grid_w,
       grid_h: config.grid_h,
       palette: config.palette
-    });
+    };
+
+    // Cache for 5 minutes
+    setCache('config', response, 5 * 60 * 1000);
+
+    res.json(response);
   } catch (err) {
+    log('error', 'Config fetch error', { error: err.message });
     res.status(500).json({ error: "config_error" });
   } finally {
     client.release();
@@ -348,12 +458,17 @@ app.post("/api/cell/claim", rateLimit(30, 60000), async (req, res) => { // 30 re
 
     await client.query("COMMIT");
 
+    // Track analytics
+    trackEvent('cell', 'claim', `${x},${y}`, 1);
+    log('info', 'Cell claimed', { x, y, code: code.substring(0, 3) + '...' });
+
     // Broadcast cell claim via WebSocket
     io.emit('cell:claimed', { x, y });
 
     res.json({ ok: true });
   } catch (err) {
     await client.query("ROLLBACK");
+    log('error', 'Cell claim error', { error: err.message });
     res.status(500).json({ error: "claim_error" });
   } finally {
     client.release();
@@ -391,15 +506,61 @@ app.post("/api/cell/paint", rateLimit(30, 60000), async (req, res) => { // 30 re
 
     await client.query("COMMIT");
 
+    // Track analytics
+    trackEvent('cell', 'paint', `${row.cell_x},${row.cell_y}`, color);
+    log('info', 'Cell painted', { x: row.cell_x, y: row.cell_y, color });
+
     // Broadcast cell paint via WebSocket
     io.emit('cell:painted', { x: row.cell_x, y: row.cell_y, color });
 
     res.json({ ok: true, x: row.cell_x, y: row.cell_y, color });
   } catch (err) {
     await client.query("ROLLBACK");
+    log('error', 'Cell paint error', { error: err.message });
     res.status(500).json({ error: "paint_error" });
   } finally {
     client.release();
+  }
+});
+
+// Get cell information (history, owner, etc.)
+app.get("/api/cell/:x/:y", async (req, res) => {
+  const x = Number(req.params.x);
+  const y = Number(req.params.y);
+
+  if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || x >= 200 || y < 0 || y >= 200) {
+    return res.status(400).json({ error: "invalid_coordinates" });
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT c.code, c.color, c.updated_at, c.claimed_at, u.email as owner_email
+       FROM codes c
+       LEFT JOIN users u ON c.user_id = u.id
+       WHERE c.cell_x = $1 AND c.cell_y = $2
+       LIMIT 1`,
+      [x, y]
+    );
+
+    if (result.rowCount === 0) {
+      return res.json({ ok: true, painted: false, x, y });
+    }
+
+    const cell = result.rows[0];
+    res.json({
+      ok: true,
+      painted: cell.color !== null,
+      x,
+      y,
+      color: cell.color,
+      owner_email: cell.owner_email,
+      claimed_at: cell.claimed_at,
+      last_painted_at: cell.updated_at,
+      code: cell.code.substring(0, 3) + "..." // Partial code for privacy
+    });
+  } catch (err) {
+    console.error("Error fetching cell info:", err);
+    res.status(500).json({ error: "server_error" });
   }
 });
 
@@ -1179,6 +1340,58 @@ app.get("/api/leaderboard", async (req, res) => {
   } finally {
     client.release();
   }
+});
+
+// Get analytics data (admin only)
+app.get("/api/admin/analytics", requireAdmin, async (req, res) => {
+  const limit = parseInt(req.query.limit) || 100;
+  const category = req.query.category;
+
+  let events = analytics.events;
+
+  // Filter by category if provided
+  if (category) {
+    events = events.filter(e => e.category === category);
+  }
+
+  // Return last N events
+  const recentEvents = events.slice(-limit);
+
+  // Calculate some basic stats
+  const stats = {
+    total_events: analytics.events.length,
+    categories: {},
+    actions: {}
+  };
+
+  analytics.events.forEach(event => {
+    stats.categories[event.category] = (stats.categories[event.category] || 0) + 1;
+    stats.actions[event.action] = (stats.actions[event.action] || 0) + 1;
+  });
+
+  res.json({
+    ok: true,
+    events: recentEvents,
+    stats,
+    cache_info: {
+      size: cache.size,
+      keys: Array.from(cache.keys())
+    }
+  });
+});
+
+// Clear cache (admin only)
+app.post("/api/admin/cache/clear", requireAdmin, async (req, res) => {
+  const key = req.body?.key;
+
+  clearCache(key);
+
+  log('info', 'Cache cleared', { key: key || 'all' });
+
+  res.json({
+    ok: true,
+    message: key ? `Cache key '${key}' cleared` : 'All cache cleared'
+  });
 });
 
 // ===== WEBSOCKET CONNECTION =====

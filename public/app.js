@@ -1595,5 +1595,73 @@ document.querySelectorAll('button').forEach(btn => {
   btn.addEventListener('click', () => hapticFeedback('light'), { passive: true });
 });
 
+// ===== CELL HISTORY =====
+let lastHoveredCell = null;
+
+// Update cell history info on canvas hover
+canvas.addEventListener('mousemove', debounce((e) => {
+  if (currentStep < 2) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const { x, y } = screenToGrid(e.clientX - rect.left, e.clientY - rect.top);
+
+  if (x >= 0 && y >= 0 && x < gridW && y < gridH) {
+    lastHoveredCell = { x, y };
+    const cellHistoryInfo = document.getElementById('cell-history-info');
+    const viewHistoryBtn = document.getElementById('view-cell-history-btn');
+
+    if (cellHistoryInfo) {
+      cellHistoryInfo.textContent = `Case survolée: (${x}, ${y})`;
+    }
+    if (viewHistoryBtn) {
+      viewHistoryBtn.disabled = false;
+    }
+  }
+}, 100));
+
+// View cell history button
+const viewCellHistoryBtn = document.getElementById('view-cell-history-btn');
+if (viewCellHistoryBtn) {
+  viewCellHistoryBtn.addEventListener('click', async () => {
+    if (!lastHoveredCell) return;
+
+    const { x, y } = lastHoveredCell;
+
+    try {
+      const res = await fetch(`/api/cell/${x}/${y}`);
+      const data = await res.json();
+
+      const cellHistoryInfo = document.getElementById('cell-history-info');
+
+      if (!data.ok || !data.painted) {
+        cellHistoryInfo.innerHTML = `
+          <strong>Case (${x}, ${y})</strong><br>
+          <span style="color: #ff6b6b;">❌ Non peinte</span>
+        `;
+        return;
+      }
+
+      const colorBox = `<span style="display: inline-block; width: 12px; height: 12px; background: ${palette[data.color - 1]}; border-radius: 2px; margin-right: 4px;"></span>`;
+      const paintedDate = new Date(data.last_painted_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+      const claimedDate = new Date(data.claimed_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+
+      cellHistoryInfo.innerHTML = `
+        <strong>Case (${x}, ${y})</strong><br>
+        ${colorBox} Couleur ${data.color}<br>
+        <span style="color: #6FE6FF;">👤 ${data.owner_email}</span><br>
+        <span style="color: #888;">🕐 Peinte: ${paintedDate}</span><br>
+        <span style="color: #888;">📌 Réclamée: ${claimedDate}</span>
+      `;
+
+      hapticFeedback('success');
+    } catch (err) {
+      console.error('Error fetching cell history:', err);
+      const cellHistoryInfo = document.getElementById('cell-history-info');
+      cellHistoryInfo.innerHTML = `<span style="color: #ff6b6b;">Erreur de chargement</span>`;
+      hapticFeedback('error');
+    }
+  });
+}
+
 // ===== START =====
 init();

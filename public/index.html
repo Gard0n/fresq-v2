@@ -820,6 +820,93 @@
         font-size: 24px !important;
       }
     }
+
+    /* ===== TOAST NOTIFICATIONS ===== */
+    #toast-container {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+    }
+
+    .toast {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px 16px;
+      min-width: 250px;
+      max-width: 350px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(10px);
+      animation: toastSlideIn 0.3s ease;
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .toast.removing {
+      animation: toastSlideOut 0.3s ease forwards;
+    }
+
+    .toast-icon {
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+
+    .toast-content {
+      flex: 1;
+    }
+
+    .toast-title {
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+      font-size: 14px;
+    }
+
+    .toast-message {
+      color: var(--text-tertiary);
+      font-size: 13px;
+    }
+
+    @keyframes toastSlideIn {
+      from {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes toastSlideOut {
+      from {
+        transform: translateX(0) scale(1);
+        opacity: 1;
+      }
+      to {
+        transform: translateX(400px) scale(0.8);
+        opacity: 0;
+      }
+    }
+
+    /* Pulse animation for new cells */
+    @keyframes cellPulse {
+      0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+      50% {
+        transform: scale(1.3);
+        opacity: 0.7;
+      }
+    }
   </style>
 </head>
 <body>
@@ -976,6 +1063,9 @@
       <button id="close-tools-btn">✕ Fermer</button>
     </div>
   </div>
+
+  <!-- Toast Notifications Container -->
+  <div id="toast-container"></div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="/app.js"></script>

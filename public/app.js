@@ -38,6 +38,8 @@ let panStart = { x: 0, y: 0 };
 
 // Animation
 let newCells = new Map();
+let particles = []; // For particle effects
+let ripples = []; // For ripple effects
 
 // WebSockets
 let socket = null;
@@ -142,6 +144,37 @@ function toggleTheme() {
   applyTheme(newTheme);
   localStorage.setItem('fresq_theme', newTheme);
   hapticFeedback('light');
+}
+
+// Animation effects
+function createCellEffects(x, y, color) {
+  const cellColor = palette[color - 1] || '#6FE6FF';
+
+  // Create ripple effect
+  ripples.push({
+    x,
+    y,
+    color: cellColor,
+    time: Date.now()
+  });
+
+  // Create particles
+  const particleCount = 8;
+  for (let i = 0; i < particleCount; i++) {
+    const angle = (Math.PI * 2 * i) / particleCount;
+    const speed = 0.5 + Math.random() * 0.5;
+    particles.push({
+      x: x * CELL_SIZE + CELL_SIZE / 2,
+      y: y * CELL_SIZE + CELL_SIZE / 2,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      color: cellColor,
+      time: Date.now()
+    });
+  }
+
+  // Trigger redraw
+  draw();
 }
 
 // ===== SCREENS =====
@@ -609,6 +642,9 @@ confirmPaintBtn.onclick = async () => {
     cellTimestamps.set(key, Date.now());
     newCells.set(key, Date.now());
 
+    // Create visual effects for own paint
+    createCellEffects(data.x, data.y, data.color);
+
     // Update user codes list
     const codeIndex = userCodes.findIndex(c => c.code === currentCode);
     if (codeIndex !== -1) {
@@ -939,23 +975,86 @@ function draw() {
     ctx.fillStyle = palette[color - 1];
     ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
 
-    // Animate new cells
+    // Animate new cells with enhanced effects
     const newCellTime = newCells.get(key);
     if (newCellTime) {
       const age = now - newCellTime;
-      if (age < 1000) {
+      if (age < 2000) {
+        // Pulse effect
         const pulse = Math.sin((age / 1000) * Math.PI * 4) * 0.3 + 0.7;
+
+        // Glow effect
+        if (age < 1000) {
+          ctx.save();
+          ctx.shadowColor = palette[color - 1];
+          ctx.shadowBlur = (1 - age / 1000) * 20;
+          ctx.fillStyle = palette[color - 1];
+          ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+          ctx.restore();
+        }
+
+        // Border pulse
         ctx.save();
         ctx.globalAlpha = pulse;
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 2 / scale;
         ctx.strokeRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
         ctx.restore();
+
         requestAnimationFrame(() => draw());
       } else {
         newCells.delete(key);
       }
     }
+  });
+
+  // Draw ripples
+  ripples = ripples.filter(ripple => {
+    const age = now - ripple.time;
+    if (age > 1000) return false;
+
+    const progress = age / 1000;
+    const radius = progress * 20;
+    const alpha = 1 - progress;
+
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.5;
+    ctx.strokeStyle = ripple.color;
+    ctx.lineWidth = 3 / scale;
+    ctx.beginPath();
+    ctx.arc(
+      ripple.x * CELL_SIZE + CELL_SIZE / 2,
+      ripple.y * CELL_SIZE + CELL_SIZE / 2,
+      radius / scale,
+      0,
+      Math.PI * 2
+    );
+    ctx.stroke();
+    ctx.restore();
+
+    requestAnimationFrame(() => draw());
+    return true;
+  });
+
+  // Draw particles
+  particles = particles.filter(particle => {
+    const age = now - particle.time;
+    if (age > 800) return false;
+
+    const progress = age / 800;
+    particle.vx *= 0.98;
+    particle.vy *= 0.98;
+    particle.x += particle.vx;
+    particle.y += particle.vy;
+
+    ctx.save();
+    ctx.globalAlpha = 1 - progress;
+    ctx.fillStyle = particle.color;
+    ctx.fillRect(particle.x, particle.y, 2 / scale, 2 / scale);
+    ctx.restore();
+
+    requestAnimationFrame(() => draw());
+    return true;
   });
 
   // Highlight my cell
@@ -1246,6 +1345,10 @@ function connectWebSocket() {
     cells.set(key, data.color);
     cellTimestamps.set(key, now);
     newCells.set(key, now);
+
+    // Create visual effects (ripples, particles, glow)
+    createCellEffects(data.x, data.y, data.color);
+
     draw();
     updateCellsCount();
     // Update background if on step 1

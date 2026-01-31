@@ -444,8 +444,9 @@ function updateLotteryWidget(progress) {
   // Update tier name
   document.getElementById('widget-tier-number').textContent = currentTier.tier_number;
 
-  // Update grid size
-  document.getElementById('widget-grid-size').textContent = `${currentTier.grid_width}×${currentTier.grid_height}`;
+  // Update grid cells (total number of cells)
+  const totalCells = new Intl.NumberFormat('fr-FR').format(currentTier.total_cells);
+  document.getElementById('widget-grid-cells').textContent = totalCells;
 
   // Update prize
   const prizeFormatted = new Intl.NumberFormat('fr-FR').format(currentTier.prize_amount);
@@ -456,10 +457,6 @@ function updateLotteryWidget(progress) {
   document.getElementById('widget-tickets-sold').textContent = new Intl.NumberFormat('fr-FR').format(ticketsSold);
   document.getElementById('widget-tickets-total').textContent = new Intl.NumberFormat('fr-FR').format(ticketsTotal);
   document.getElementById('widget-progress-percent').textContent = progressPercent.toFixed(1);
-
-  // Animate progress bar
-  const progressFill = document.getElementById('widget-progress-fill');
-  progressFill.style.width = `${Math.min(100, progressPercent)}%`;
 }
 
 // ===== USER SESSION MANAGEMENT =====

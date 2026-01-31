@@ -491,18 +491,18 @@ function updateMyCodesList() {
 
   userCodes.forEach((codeData) => {
     const div = document.createElement('div');
-    div.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 10px; background: rgba(42, 63, 95, 0.3); border-radius: 6px; border: 1px solid #2a3f5f;';
+    div.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: rgba(42, 63, 95, 0.25); border-radius: 4px; border: 1px solid #2a3f5f;';
 
     const isPainted = codeData.x !== null && codeData.color !== null;
     const colorHex = isPainted ? palette[codeData.color - 1] : '#888';
 
     div.innerHTML = `
-      <div style="display: flex; gap: 12px; align-items: center; flex: 1;">
-        <div style="width: 20px; height: 20px; background: ${colorHex}; border-radius: 4px; border: 1px solid #444;"></div>
-        <span style="font-size: 13px; color: #aaa;">${codeData.code}</span>
-        ${isPainted ? `<span style="font-size: 12px; color: #666;">(${codeData.x}, ${codeData.y})</span>` : '<span style="font-size: 12px; color: #666;">Non assigné</span>'}
+      <div style="display: flex; gap: 8px; align-items: center; flex: 1;">
+        <div style="width: 14px; height: 14px; background: ${colorHex}; border-radius: 3px; border: 1px solid #444;"></div>
+        <span style="font-size: 11px; color: #aaa; font-weight: 500;">${codeData.code}</span>
+        ${isPainted ? `<span style="font-size: 10px; color: #666;">(${codeData.x}, ${codeData.y})</span>` : '<span style="font-size: 10px; color: #666;">Non assigné</span>'}
       </div>
-      <button class="repaint-btn" data-code="${codeData.code}" style="padding: 6px 16px; font-size: 12px; background: linear-gradient(135deg, #2a4 0%, #1a3 100%); border: 1px solid #3b5; color: #fff; border-radius: 4px; cursor: pointer;">
+      <button class="repaint-btn" data-code="${codeData.code}" style="padding: 4px 10px; font-size: 10px; background: linear-gradient(135deg, #2a4 0%, #1a3 100%); border: 1px solid #3b5; color: #fff; border-radius: 3px; cursor: pointer; white-space: nowrap;">
         ${isPainted ? '🎨 Repeindre' : '➕ Peindre'}
       </button>
     `;

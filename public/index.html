@@ -1180,24 +1180,24 @@
       </div>
     </div>
 
-    <!-- STEP 2 Controls: Code Management -->
+    <!-- STEP 2 Controls: Code Management (Compact) -->
     <div id="step2-controls" class="hidden">
-      <div style="display: flex; flex-direction: column; gap: 16px; width: 100%; max-width: 800px; margin: 0 auto;">
-        <!-- My Codes List -->
-        <div id="my-codes-section" style="background: rgba(26, 31, 46, 0.8); border-radius: 8px; padding: 16px;">
-          <h3 style="font-size: 14px; color: #6FE6FF; margin-bottom: 12px;">📌 Mes codes</h3>
-          <div id="my-codes-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 150px; overflow-y: auto;"></div>
-          <div id="no-codes-msg" style="color: #888; font-size: 13px; display: none;">Aucun code pour le moment. Ajoute-en un ci-dessous !</div>
+      <div style="display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 600px; margin: 0 auto;">
+        <!-- My Codes List (Compact) -->
+        <div id="my-codes-section" style="background: rgba(26, 31, 46, 0.9); border-radius: 6px; padding: 10px 12px;">
+          <h3 style="font-size: 12px; color: #6FE6FF; margin-bottom: 8px; font-weight: 600;">📌 Mes codes</h3>
+          <div id="my-codes-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 80px; overflow-y: auto;"></div>
+          <div id="no-codes-msg" style="color: #888; font-size: 11px; display: none;">Aucun code</div>
         </div>
 
-        <!-- Add New Code -->
-        <div style="background: rgba(26, 31, 46, 0.8); border-radius: 8px; padding: 16px;">
-          <h3 style="font-size: 14px; color: #6FE6FF; margin-bottom: 12px;">➕ Ajouter un code</h3>
-          <div style="display: flex; gap: 12px; align-items: center;">
-            <input type="text" id="new-code-input" placeholder="ABC-12345" style="flex: 1; padding: 12px; font-size: 14px; border: 1px solid #2a3f5f; background: rgba(26, 31, 46, 0.8); color: #fff; border-radius: 6px;">
-            <button id="add-code-btn" style="padding: 12px 24px; font-size: 14px; background: linear-gradient(135deg, #2a4 0%, #1a3 100%); border: 1px solid #3b5; color: #fff; border-radius: 6px; cursor: pointer; font-weight: 600;">Valider</button>
+        <!-- Add New Code (Compact Inline) -->
+        <div style="background: rgba(26, 31, 46, 0.9); border-radius: 6px; padding: 8px 12px;">
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <span style="font-size: 11px; color: #6FE6FF; font-weight: 600; white-space: nowrap;">➕</span>
+            <input type="text" id="new-code-input" placeholder="ABC-12345" style="flex: 1; padding: 8px 10px; font-size: 12px; border: 1px solid #2a3f5f; background: rgba(10, 14, 26, 0.8); color: #fff; border-radius: 4px;">
+            <button id="add-code-btn" style="padding: 8px 16px; font-size: 12px; background: linear-gradient(135deg, #2a4 0%, #1a3 100%); border: 1px solid #3b5; color: #fff; border-radius: 4px; cursor: pointer; font-weight: 600; white-space: nowrap;">Ajouter</button>
           </div>
-          <div id="add-code-status" style="margin-top: 8px; font-size: 13px; min-height: 20px;"></div>
+          <div id="add-code-status" style="margin-top: 6px; font-size: 11px; min-height: 16px;"></div>
         </div>
       </div>
     </div>

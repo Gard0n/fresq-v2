@@ -78,21 +78,26 @@ export async function drawPrize(client, prizeId) {
       throw new Error('Prize already drawn');
     }
 
-    // Get all eligible tickets for this tier (paid tickets)
-    const eligibleTicketsResult = await client.query(`
-      SELECT id
-      FROM tickets
-      WHERE tier_id = $1
-        AND status = 'paid'
+    // Get all eligible CODES for this tier
+    // Rule: ALL codes with cell_x/cell_y not null participate (purchased + bonus + referral)
+    const eligibleCodesResult = await client.query(`
+      SELECT c.id as code_id, t.id as ticket_id, c.code, c.source, c.user_id
+      FROM codes c
+      INNER JOIN tickets t ON c.user_id = t.user_id
+      WHERE c.cell_x IS NOT NULL
+        AND c.cell_y IS NOT NULL
+        AND t.tier_id = $1
+        AND t.status = 'paid'
       ORDER BY RANDOM()
       LIMIT 1
     `, [prize.tier_id]);
 
-    if (eligibleTicketsResult.rows.length === 0) {
-      throw new Error('No eligible tickets for this tier');
+    if (eligibleCodesResult.rows.length === 0) {
+      throw new Error('No eligible codes with claimed cells for this tier');
     }
 
-    const winnerTicketId = eligibleTicketsResult.rows[0].id;
+    const winnerData = eligibleCodesResult.rows[0];
+    const winnerTicketId = winnerData.ticket_id;
 
     // Update prize with winner
     await client.query(`

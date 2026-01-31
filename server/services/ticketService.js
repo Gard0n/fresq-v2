@@ -51,7 +51,7 @@ export async function createTicket(client, { email, amount = 2.00, paymentProvid
     // Generate unique order ID
     const orderId = `ORDER-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`.toUpperCase();
 
-    // Create ticket with pending status
+    // Create ticket with pending status (solo ticket: 1 paid, 0 bonus)
     const ticketResult = await client.query(`
       INSERT INTO tickets (
         order_id,
@@ -60,11 +60,14 @@ export async function createTicket(client, { email, amount = 2.00, paymentProvid
         email,
         user_id,
         amount,
+        quantity,
+        base_quantity,
+        bonus_quantity,
         status,
         tier_id,
         created_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, 1, 1, 0, 'pending', $7, NOW())
       RETURNING *
     `, [orderId, paymentProvider, paymentSessionId, normalizedEmail, userId, amount, currentTier.id]);
 
@@ -102,10 +105,10 @@ export async function confirmTicketPayment(client, orderId) {
     // Generate code for this ticket
     const code = generateCode();
 
-    // Insert code in codes table
+    // Insert code in codes table (source = purchased for paid tickets)
     const codeResult = await client.query(`
-      INSERT INTO codes (code, user_id)
-      VALUES ($1, $2)
+      INSERT INTO codes (code, user_id, source)
+      VALUES ($1, $2, 'purchased')
       RETURNING id
     `, [code, ticket.user_id]);
 
@@ -234,6 +237,11 @@ export async function cancelTicket(client, orderId) {
 
     if (ticket.status === 'refunded' || ticket.status === 'cancelled') {
       throw new Error('Ticket already cancelled or refunded');
+    }
+
+    // RÈGLE: Bloquer remboursement des packs (quantity > 1)
+    if ((ticket.quantity || 1) > 1) {
+      throw new Error('Cannot refund pack purchases. Please contact support.');
     }
 
     // If ticket was paid, we need to handle the code

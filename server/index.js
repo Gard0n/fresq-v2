@@ -12,6 +12,7 @@ import * as tierService from "./services/tierService.js";
 import * as ticketService from "./services/ticketService.js";
 import * as lotteryService from "./services/lotteryService.js";
 import * as referralService from "./services/referralService.js";
+import * as packService from "./services/packService.js";
 
 const app = express();
 const httpServer = createServer(app);
@@ -1892,6 +1893,182 @@ app.get("/api/admin/referrals", requireAdmin, async (req, res) => {
   } catch (err) {
     log('error', 'Get referrals error', { error: err.message });
     res.status(500).json({ error: 'get_referrals_error' });
+  } finally {
+    client.release();
+  }
+});
+
+// ===== COMMERCIAL: PACKS =====
+
+// Get available packs
+app.get("/api/packs", async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const packs = await packService.getAvailablePacks(client);
+    res.json({ ok: true, packs });
+  } catch (err) {
+    log('error', 'Get packs error', { error: err.message });
+    res.status(500).json({ error: 'get_packs_error' });
+  } finally {
+    client.release();
+  }
+});
+
+// Create pack purchase
+app.post("/api/pack/purchase", rateLimit(5, 60000), async (req, res) => {
+  const { email, packKey } = req.body;
+
+  if (!email || !packKey) {
+    return res.status(400).json({ error: 'email_and_pack_required' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const result = await packService.createPackPurchase(client, {
+      email,
+      packKey,
+      paymentProvider: 'manual'
+    });
+
+    await client.query('COMMIT');
+
+    trackEvent('pack', 'purchased', packKey, result.pack.totalTickets);
+    log('info', 'Pack purchased', { email, packKey, totalTickets: result.pack.totalTickets });
+
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    log('error', 'Pack purchase error', { error: err.message });
+    res.status(500).json({ error: 'pack_purchase_error', message: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Confirm pack purchase (admin)
+app.post("/api/admin/pack/:orderId/confirm", requireAdmin, async (req, res) => {
+  const { orderId } = req.params;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const result = await packService.confirmPackPurchase(client, orderId);
+
+    await client.query('COMMIT');
+
+    trackEvent('pack', 'confirmed', orderId, result.totalCodes);
+    log('info', 'Pack confirmed', { orderId, codesGenerated: result.totalCodes });
+
+    // Broadcast tier upgrade if occurred
+    if (result.tierUpgrade && result.tierUpgrade.upgraded) {
+      io.emit('tier_upgrade', {
+        oldTier: result.tierUpgrade.oldTier,
+        newTier: result.tierUpgrade.newTier,
+        expansion: result.tierUpgrade.expansion
+      });
+
+      // Invalidate config cache
+      clearCache('config');
+    }
+
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    log('error', 'Confirm pack error', { error: err.message });
+    res.status(500).json({ error: 'confirm_pack_error', message: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Get pack statistics (admin)
+app.get("/api/admin/packs/stats", requireAdmin, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const stats = await packService.getPackStats(client);
+    res.json({ ok: true, stats });
+  } catch (err) {
+    log('error', 'Get pack stats error', { error: err.message });
+    res.status(500).json({ error: 'get_pack_stats_error' });
+  } finally {
+    client.release();
+  }
+});
+
+// Update pack configuration (admin)
+app.put("/api/admin/pack/:packKey", requireAdmin, async (req, res) => {
+  const { packKey } = req.params;
+  const updates = req.body;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const updatedPack = await packService.updatePackConfig(client, packKey, updates);
+
+    await client.query('COMMIT');
+
+    trackEvent('pack', 'config_updated', packKey);
+    log('info', 'Pack config updated', { packKey, updates });
+
+    res.json({ ok: true, pack: updatedPack });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    log('error', 'Update pack config error', { error: err.message });
+    res.status(500).json({ error: 'update_pack_error', message: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Create new pack configuration (admin)
+app.post("/api/admin/pack/create", requireAdmin, async (req, res) => {
+  const packData = req.body;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const newPack = await packService.createPackConfig(client, packData);
+
+    await client.query('COMMIT');
+
+    trackEvent('pack', 'config_created', packData.packKey);
+    log('info', 'Pack config created', { packKey: packData.packKey });
+
+    res.json({ ok: true, pack: newPack });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    log('error', 'Create pack config error', { error: err.message });
+    res.status(500).json({ error: 'create_pack_error', message: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Delete pack configuration (admin)
+app.delete("/api/admin/pack/:packKey", requireAdmin, async (req, res) => {
+  const { packKey } = req.params;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    await packService.deletePackConfig(client, packKey);
+
+    await client.query('COMMIT');
+
+    trackEvent('pack', 'config_deleted', packKey);
+    log('info', 'Pack config deleted', { packKey });
+
+    res.json({ ok: true, message: 'Pack deleted' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    log('error', 'Delete pack config error', { error: err.message });
+    res.status(500).json({ error: 'delete_pack_error', message: err.message });
   } finally {
     client.release();
   }

@@ -110,10 +110,10 @@ export async function completeReferral(client, referredEmail) {
     // Generate free code for referrer
     const freeCode = generateCode();
 
-    // Insert code
+    // Insert code (source = referral for free referral codes)
     const codeResult = await client.query(`
-      INSERT INTO codes (code, user_id)
-      VALUES ($1, $2)
+      INSERT INTO codes (code, user_id, source)
+      VALUES ($1, $2, 'referral')
       RETURNING id
     `, [freeCode, referral.referrer_user_id]);
 

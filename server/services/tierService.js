@@ -8,9 +8,9 @@
  */
 export async function getCurrentTier(client) {
   try {
-    // Count total paid tickets
+    // Count total PAID tickets only (base_quantity, excludes bonus)
     const ticketCountResult = await client.query(`
-      SELECT COUNT(*) as total
+      SELECT COALESCE(SUM(base_quantity), 0) as total
       FROM tickets
       WHERE status = 'paid'
     `);
@@ -217,7 +217,7 @@ export async function getTierProgress(client) {
     }
 
     const ticketCountResult = await client.query(`
-      SELECT COUNT(*) as total
+      SELECT COALESCE(SUM(base_quantity), 0) as total
       FROM tickets
       WHERE status = 'paid'
     `);

@@ -238,7 +238,7 @@ export async function cancelTicket(client, orderId) {
 
     // If ticket was paid, we need to handle the code
     if (ticket.status === 'paid' && ticket.code_id) {
-      // Delete the code if it hasn't been used (no cell painted)
+      // Check code status
       const codeResult = await client.query(
         'SELECT * FROM codes WHERE id = $1',
         [ticket.code_id]
@@ -247,16 +247,20 @@ export async function cancelTicket(client, orderId) {
       if (codeResult.rows.length > 0) {
         const code = codeResult.rows[0];
 
-        if (code.cell_x === null && code.cell_y === null) {
-          // Code not used, safe to delete
-          await client.query('DELETE FROM codes WHERE id = $1', [ticket.code_id]);
-        } else {
-          // Code was used, just mark it as refunded
-          await client.query(
-            'UPDATE codes SET user_id = NULL WHERE id = $1',
-            [ticket.code_id]
-          );
+        // RÈGLE: Bloquer remboursement si case PEINTE (color !== null)
+        if (code.color !== null) {
+          throw new Error('Cannot refund: cell already painted');
         }
+
+        // Si case sélectionnée mais NON peinte (cell_x/y SET, color NULL)
+        // → Permettre remboursement mais garder la case pour l'user
+        if (code.cell_x !== null && code.cell_y !== null) {
+          throw new Error('Cannot refund: cell position already claimed. Contact support.');
+        }
+
+        // Si code réclamé mais case non sélectionnée (cell_x/y NULL)
+        // → Safe to delete
+        await client.query('DELETE FROM codes WHERE id = $1', [ticket.code_id]);
       }
     }
 

@@ -165,6 +165,11 @@ function switchTab(tabName) {
       loadReferralStats();
       loadReferralsTable();
       break;
+    case 'packs':
+      loadPackStats();
+      loadPacksTable();
+      loadPackSalesTable();
+      break;
     case 'users':
       loadUsers();
       break;
@@ -176,6 +181,9 @@ function switchTab(tabName) {
       break;
     case 'config':
       loadConfig();
+      break;
+    case 'concept':
+      // Concept page is static, no loading needed
       break;
   }
 }
@@ -1127,6 +1135,134 @@ async function loadReferralsTable() {
 (async function init() {
   // Check if already logged in
   const isAuth = await checkAuth();
+
+  // ===== PACK MANAGEMENT =====
+  window.loadPackStats = async function() {
+    try {
+      const data = await apiCall('/api/admin/packs/stats');
+      const packStats = data.stats;
+
+      const statsContainer = document.getElementById('pack-stats');
+      if (!statsContainer) return;
+
+      let totalPurchases = 0;
+      let totalRevenue = 0;
+
+      packStats.forEach(pack => {
+        totalPurchases += parseInt(pack.purchases_count) || 0;
+        totalRevenue += parseFloat(pack.total_revenue) || 0;
+      });
+
+      statsContainer.innerHTML = `
+        <div class="stat-card">
+          <h3>Total Achats Packs</h3>
+          <div class="value">${totalPurchases}</div>
+          <div class="sub">Depuis le lancement</div>
+        </div>
+        <div class="stat-card">
+          <h3>Revenus Packs</h3>
+          <div class="value">${totalRevenue.toFixed(2)}€</div>
+          <div class="sub">Total généré</div>
+        </div>
+        <div class="stat-card">
+          <h3>Pack le plus vendu</h3>
+          <div class="value">${packStats.reduce((max, p) =>
+            (parseInt(p.purchases_count) || 0) > (parseInt(max.purchases_count) || 0) ? p : max,
+            packStats[0])?.label || '-'}</div>
+          <div class="sub">Meilleur performer</div>
+        </div>
+        <div class="stat-card">
+          <h3>Packs configurés</h3>
+          <div class="value">${packStats.length}</div>
+          <div class="sub">Actuellement disponibles</div>
+        </div>
+      `;
+    } catch (err) {
+      console.error('Failed to load pack stats:', err);
+    }
+  };
+
+  window.loadPacksTable = async function() {
+    try {
+      const data = await apiCall('/api/packs');
+      const packs = data.packs;
+
+      const packsList = document.getElementById('packs-list');
+      if (!packsList) return;
+
+      if (packs.length === 0) {
+        packsList.innerHTML = '<tr><td colspan="7" class="no-data">Aucun pack configuré</td></tr>';
+        return;
+      }
+
+      packsList.innerHTML = packs.map(pack => `
+        <tr>
+          <td><strong>${pack.label}</strong> (${pack.pack_key})</td>
+          <td>${pack.price.toFixed(2)}€</td>
+          <td>${pack.base_tickets}</td>
+          <td>${pack.bonus_tickets}</td>
+          <td><strong>${pack.total_tickets}</strong></td>
+          <td>
+            <span class="badge ${pack.is_active ? 'success' : 'error'}">
+              ${pack.is_active ? '✓ Actif' : '✗ Inactif'}
+            </span>
+          </td>
+          <td>
+            <button class="btn-sm" onclick="togglePackActive('${pack.pack_key}', ${!pack.is_active})">
+              ${pack.is_active ? '🚫 Désactiver' : '✓ Activer'}
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    } catch (err) {
+      console.error('Failed to load packs:', err);
+    }
+  };
+
+  window.loadPackSalesTable = async function() {
+    try {
+      const data = await apiCall('/api/admin/packs/stats');
+      const packStats = data.stats;
+
+      const salesList = document.getElementById('pack-sales-list');
+      if (!salesList) return;
+
+      if (packStats.length === 0) {
+        salesList.innerHTML = '<tr><td colspan="5" class="no-data">Aucune vente</td></tr>';
+        return;
+      }
+
+      salesList.innerHTML = packStats.map(pack => `
+        <tr>
+          <td><strong>${pack.label}</strong></td>
+          <td>${parseFloat(pack.price).toFixed(2)}€</td>
+          <td>${pack.purchases_count || 0}</td>
+          <td>${pack.total_tickets_sold || 0}</td>
+          <td><strong>${parseFloat(pack.total_revenue || 0).toFixed(2)}€</strong></td>
+        </tr>
+      `).join('');
+    } catch (err) {
+      console.error('Failed to load pack sales:', err);
+    }
+  };
+
+  window.togglePackActive = async function(packKey, activate) {
+    try {
+      const action = activate ? 'activer' : 'désactiver';
+      if (!confirm(`Voulez-vous vraiment ${action} le pack "${packKey}"?`)) return;
+
+      await apiCall(`/api/admin/pack/${packKey}`, {
+        method: 'PUT',
+        body: JSON.stringify({ is_active: activate })
+      });
+
+      alert(`Pack ${activate ? 'activé' : 'désactivé'} avec succès!`);
+      loadPacksTable();
+      loadPackSalesTable();
+    } catch (err) {
+      alert('Erreur lors de la modification du pack: ' + err.message);
+    }
+  };
 
   if (isAuth) {
     // Load palette first

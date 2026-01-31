@@ -622,6 +622,106 @@
       text-align: center;
       padding: 20px;
     }
+
+    /* ===== CONCEPT PAGE ===== */
+    .concept-section {
+      background: rgba(26, 31, 46, 0.6);
+      border: 1px solid #2a3f5f;
+      border-radius: 8px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .concept-section h3 {
+      color: #6FE6FF;
+      margin-bottom: 16px;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .concept-section h4 {
+      color: #89A4C7;
+      margin: 16px 0 8px 0;
+      font-size: 16px;
+    }
+
+    .concept-section p {
+      line-height: 1.6;
+      margin-bottom: 12px;
+      color: #d0d6df;
+    }
+
+    .concept-section ul {
+      list-style: none;
+      padding-left: 0;
+    }
+
+    .concept-section ul li {
+      padding: 8px 0;
+      padding-left: 24px;
+      position: relative;
+      line-height: 1.5;
+      color: #d0d6df;
+    }
+
+    .concept-section ul li:before {
+      content: "▸";
+      position: absolute;
+      left: 0;
+      color: #6FE6FF;
+      font-weight: bold;
+    }
+
+    .concept-section code {
+      background: rgba(10, 14, 26, 0.8);
+      padding: 2px 6px;
+      border-radius: 3px;
+      color: #6FE6FF;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+    }
+
+    .concept-section .note {
+      background: rgba(111, 230, 255, 0.1);
+      border-left: 3px solid #6FE6FF;
+      padding: 12px;
+      margin: 12px 0;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    .concept-section .example {
+      background: rgba(42, 63, 95, 0.3);
+      border: 1px solid #2a3f5f;
+      border-radius: 6px;
+      padding: 16px;
+      margin-top: 12px;
+    }
+
+    .concept-section .example h4 {
+      color: #FFB74D;
+      margin-top: 0;
+    }
+
+    .concept-section .example ol {
+      list-style: decimal;
+      padding-left: 24px;
+    }
+
+    .concept-section .example ol li {
+      margin: 12px 0;
+      color: #d0d6df;
+    }
+
+    .concept-section .example ol li:before {
+      content: none;
+    }
+
+    .concept-section .example ul {
+      margin-top: 8px;
+    }
   </style>
 </head>
 <body>
@@ -663,10 +763,12 @@
       <button class="tab" data-tab="commercial">💰 Commercial</button>
       <button class="tab" data-tab="lottery">🎰 Loterie</button>
       <button class="tab" data-tab="referrals">🤝 Parrainages</button>
+      <button class="tab" data-tab="packs">📦 Packs</button>
       <button class="tab" data-tab="users">👥 Utilisateurs</button>
       <button class="tab" data-tab="codes">🎫 Codes</button>
       <button class="tab" data-tab="grid">🎨 Grille</button>
       <button class="tab" data-tab="config">⚙️ Configuration</button>
+      <button class="tab" data-tab="concept">📖 Concept</button>
     </div>
 
     <div class="dashboard-content">
@@ -916,6 +1018,59 @@
         </div>
       </div>
 
+      <!-- TAB: Packs -->
+      <div class="tab-panel" id="panel-packs">
+        <div class="section">
+          <h2>📦 Gestion des Packs</h2>
+
+          <div class="stats-grid" id="pack-stats">
+            <!-- Pack stats will be loaded here -->
+          </div>
+
+          <div class="section">
+            <h3>📋 Configuration des Packs</h3>
+            <div class="table-container">
+              <table id="packs-table">
+                <thead>
+                  <tr>
+                    <th>Pack</th>
+                    <th>Prix</th>
+                    <th>Tickets Payés</th>
+                    <th>Tickets Bonus</th>
+                    <th>Total Tickets</th>
+                    <th>Actif</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="packs-list">
+                  <tr><td colspan="7" class="loading">Chargement...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="section">
+            <h3>📊 Statistiques Ventes par Pack</h3>
+            <div class="table-container">
+              <table id="pack-sales-table">
+                <thead>
+                  <tr>
+                    <th>Pack</th>
+                    <th>Prix</th>
+                    <th>Achats</th>
+                    <th>Tickets Vendus</th>
+                    <th>Revenus</th>
+                  </tr>
+                </thead>
+                <tbody id="pack-sales-list">
+                  <tr><td colspan="5" class="loading">Chargement...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- TAB: Config -->
       <div class="tab-panel" id="panel-config">
         <div class="section">
@@ -924,6 +1079,175 @@
           <div class="palette-editor" id="palette-editor"></div>
 
           <button id="save-palette-btn" class="btn">💾 Enregistrer la palette</button>
+        </div>
+      </div>
+
+      <!-- TAB: Concept -->
+      <div class="tab-panel" id="panel-concept">
+        <div class="section">
+          <h2>📖 FRESQ V2 - Concept & Fonctionnement</h2>
+
+          <div class="concept-section">
+            <h3>🎯 Concept Principal</h3>
+            <p><strong>FRESQ V2</strong> est une fresque collaborative en temps réel avec système de loterie intégré basé sur des paliers progressifs.</p>
+
+            <h4>🎨 Fresque Collaborative</h4>
+            <ul>
+              <li><strong>1 ticket = 1 code = 1 case</strong> sur la grille collaborative</li>
+              <li>Prix de base: <strong>2€ par ticket</strong> (fixe)</li>
+              <li>Chaque utilisateur peut peindre sa case avec 10 couleurs disponibles</li>
+              <li>Synchronisation en temps réel via WebSocket</li>
+            </ul>
+
+            <h4>📦 Système de Packs (Bonus Tickets)</h4>
+            <ul>
+              <li><strong>Pack Solo:</strong> 2€ → 1 ticket (0 bonus)</li>
+              <li><strong>Pack Mini:</strong> 10€ → 6 tickets (5 payés + 1 bonus)</li>
+              <li><strong>Pack Medium:</strong> 20€ → 12 tickets (10 payés + 2 bonus)</li>
+              <li><strong>Pack Mega:</strong> 100€ → 55 tickets (50 payés + 5 bonus)</li>
+              <li><strong>Pack Ultra:</strong> 200€ → 110 tickets (100 payés + 10 bonus)</li>
+            </ul>
+            <p class="note">💡 <strong>Important:</strong> Les tickets bonus sont GRATUITS et ne comptent pas pour les revenus ni les paliers.</p>
+
+            <h4>📊 Système de Paliers (10 Tiers)</h4>
+            <p>La grille s'agrandit automatiquement selon le nombre de <strong>tickets PAYÉS</strong> vendus:</p>
+            <ul>
+              <li><strong>Palier 0:</strong> 200×200 (40,000 cases) → Gain: 10,000€</li>
+              <li><strong>Palier 1:</strong> 283×283 (80,089 cases) → Gain: 10,000€</li>
+              <li><strong>Palier 2:</strong> 400×400 (160,000 cases) → Gain: 20,000€</li>
+              <li>... jusqu'à ...</li>
+              <li><strong>Palier 9:</strong> 1414×1414 (2M cases) → Gain: 400,000€</li>
+            </ul>
+            <p class="note">⚠️ Seuls les tickets <strong>payés</strong> (base_quantity) font avancer les paliers.</p>
+
+            <h4>🎰 Système de Loterie</h4>
+            <ul>
+              <li><strong>Qui participe?</strong> TOUS les codes avec case peinte (cell_x/cell_y not null)</li>
+              <li>Inclut: tickets payés, bonus packs, codes parrainage</li>
+              <li><strong>Tirage équitable:</strong> SQL ORDER BY RANDOM()</li>
+              <li><strong>1 code = 1 chance</strong> (pas par ticket, par code)</li>
+            </ul>
+
+            <h4>🤝 Système de Parrainage</h4>
+            <ul>
+              <li>User A parraine User B par email</li>
+              <li>Quand User B fait son 1er achat → User A reçoit 1 code gratuit</li>
+              <li>Code source: "referral" (participe à la loterie)</li>
+            </ul>
+
+            <h4>⏰ Deadline Globale (À Implémenter)</h4>
+            <ul>
+              <li>Campagne unique de <strong>6 mois</strong></li>
+              <li>Tirage automatique à la deadline ou quand palier 9 atteint</li>
+              <li>Pas de deadline par palier</li>
+            </ul>
+          </div>
+
+          <div class="concept-section">
+            <h3>💰 Règles Commerciales</h3>
+
+            <h4>✅ Ce qui compte pour les revenus:</h4>
+            <ul>
+              <li>Tickets PAYÉS uniquement (base_quantity)</li>
+              <li>Exemple: Pack Mini (10€) = 5 tickets payés × 2€</li>
+            </ul>
+
+            <h4>✅ Ce qui compte pour les paliers:</h4>
+            <ul>
+              <li>Tickets PAYÉS uniquement (base_quantity)</li>
+              <li>Les bonus ne font PAS avancer les paliers</li>
+            </ul>
+
+            <h4>✅ Ce qui compte pour la loterie:</h4>
+            <ul>
+              <li>TOUS les codes avec case peinte</li>
+              <li>Payés + Bonus + Parrainage = tous participent équitablement</li>
+            </ul>
+
+            <h4>❌ Remboursements:</h4>
+            <ul>
+              <li>Ticket solo: remboursable si case non peinte/non sélectionnée</li>
+              <li>Packs: remboursement BLOQUÉ (contacter support)</li>
+              <li>Si case peinte: remboursement impossible</li>
+            </ul>
+          </div>
+
+          <div class="concept-section">
+            <h3>🗄️ Structure Base de Données</h3>
+
+            <h4>Table: tickets</h4>
+            <ul>
+              <li><code>quantity</code>: Nombre total de tickets (payés + bonus)</li>
+              <li><code>base_quantity</code>: Tickets PAYÉS (comptent pour revenus/paliers)</li>
+              <li><code>bonus_quantity</code>: Tickets BONUS (gratuits, ne comptent pas)</li>
+            </ul>
+
+            <h4>Table: codes</h4>
+            <ul>
+              <li><code>source</code>: 'purchased', 'pack_bonus', 'referral', 'admin_gift'</li>
+              <li><code>cell_x, cell_y</code>: Position de la case (NULL si non sélectionnée)</li>
+              <li><code>color</code>: Couleur peinte (NULL si non peinte)</li>
+            </ul>
+
+            <h4>Table: pack_configs</h4>
+            <ul>
+              <li>Configuration des packs modifiable par admin</li>
+              <li>Permet ajout de nouveaux packs custom</li>
+            </ul>
+          </div>
+
+          <div class="concept-section">
+            <h3>📈 Exemple Concret</h3>
+
+            <div class="example">
+              <h4>Scénario: User achète Pack Medium (20€)</h4>
+              <ol>
+                <li><strong>Achat:</strong>
+                  <ul>
+                    <li>amount: 20.00€</li>
+                    <li>quantity: 12 (total)</li>
+                    <li>base_quantity: 10 (payés)</li>
+                    <li>bonus_quantity: 2 (gratuits)</li>
+                  </ul>
+                </li>
+                <li><strong>Génération codes:</strong>
+                  <ul>
+                    <li>10× codes source='purchased'</li>
+                    <li>2× codes source='pack_bonus'</li>
+                  </ul>
+                </li>
+                <li><strong>Impact revenus:</strong>
+                  <ul>
+                    <li>Revenus: +20€</li>
+                    <li>Comptabilisé: 10 tickets × 2€</li>
+                  </ul>
+                </li>
+                <li><strong>Impact paliers:</strong>
+                  <ul>
+                    <li>Progression: +10 tickets (pas +12!)</li>
+                  </ul>
+                </li>
+                <li><strong>Impact loterie:</strong>
+                  <ul>
+                    <li>Si 12 cases peintes → 12 participations</li>
+                    <li>Bonus participent équitablement ✅</li>
+                  </ul>
+                </li>
+              </ol>
+            </div>
+          </div>
+
+          <div class="concept-section">
+            <h3>🔐 Règles de Sécurité</h3>
+            <ul>
+              <li>Admin password requis pour accès dashboard</li>
+              <li>Validation email RFC 5322</li>
+              <li>Transactions PostgreSQL (BEGIN/COMMIT/ROLLBACK)</li>
+              <li>Rate limiting sur toutes les routes publiques</li>
+              <li>WebSocket CORS configuré</li>
+              <li>Code génération unique (collision impossible)</li>
+            </ul>
+          </div>
         </div>
       </div>
     </div>

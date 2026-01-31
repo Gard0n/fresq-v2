@@ -597,6 +597,163 @@
       height: 100%;
     }
 
+    /* === LOTTERY WIDGET === */
+    #lottery-widget {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, rgba(26, 31, 46, 0.98) 0%, rgba(42, 63, 95, 0.95) 100%);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(111, 230, 255, 0.3);
+      border-radius: 16px;
+      padding: 16px 24px;
+      min-width: 320px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(111, 230, 255, 0.1);
+      z-index: 900;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      animation: slideDown 0.5s ease-out;
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+    }
+
+    #lottery-widget:hover {
+      box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(111, 230, 255, 0.3);
+      border-color: rgba(111, 230, 255, 0.5);
+    }
+
+    .lottery-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--accent-primary);
+    }
+
+    .lottery-icon {
+      font-size: 20px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+
+    .lottery-tier-name {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .lottery-progress-container {
+      margin-bottom: 12px;
+    }
+
+    .lottery-progress-bar {
+      height: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 6px;
+      position: relative;
+    }
+
+    .lottery-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #2aa 0%, #6FE6FF 100%);
+      border-radius: 10px;
+      width: 0%;
+      transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 0 10px rgba(111, 230, 255, 0.5);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .lottery-progress-fill::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+      animation: shimmer 2s infinite;
+    }
+
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+
+    .lottery-progress-text {
+      font-size: 12px;
+      color: var(--text-secondary);
+      text-align: center;
+      font-weight: 500;
+    }
+
+    .lottery-details {
+      display: flex;
+      gap: 16px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .lottery-detail-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .lottery-detail-label {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      font-weight: 500;
+    }
+
+    .lottery-detail-value {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--accent-primary);
+      text-shadow: 0 0 10px rgba(111, 230, 255, 0.3);
+    }
+
+    /* Mobile responsive */
+    @media (max-width: 480px) {
+      #lottery-widget {
+        top: 10px;
+        min-width: 280px;
+        padding: 12px 16px;
+        font-size: 13px;
+      }
+
+      .lottery-header {
+        font-size: 14px;
+      }
+
+      .lottery-icon {
+        font-size: 18px;
+      }
+
+      .lottery-detail-value {
+        font-size: 13px;
+      }
+    }
+
     .hidden {
       display: none !important;
     }
@@ -1064,6 +1221,33 @@
 
   <!-- STEP 2 & 3: Canvas Screen (shared) -->
   <div id="canvas-screen" class="hidden">
+    <!-- Lottery Widget -->
+    <div id="lottery-widget">
+      <div class="lottery-header">
+        <span class="lottery-icon">🎰</span>
+        <span class="lottery-tier-name">Palier <span id="widget-tier-number">0</span></span>
+      </div>
+      <div class="lottery-progress-container">
+        <div class="lottery-progress-bar">
+          <div class="lottery-progress-fill" id="widget-progress-fill"></div>
+        </div>
+        <div class="lottery-progress-text">
+          <span id="widget-tickets-sold">0</span> / <span id="widget-tickets-total">20,000</span>
+          (<span id="widget-progress-percent">0</span>%)
+        </div>
+      </div>
+      <div class="lottery-details">
+        <div class="lottery-detail-item">
+          <span class="lottery-detail-label">🎁 Gain:</span>
+          <span class="lottery-detail-value" id="widget-prize">10,000€</span>
+        </div>
+        <div class="lottery-detail-item">
+          <span class="lottery-detail-label">📐 Grille:</span>
+          <span class="lottery-detail-value" id="widget-grid-size">200×200</span>
+        </div>
+      </div>
+    </div>
+
     <div id="canvas-container">
       <canvas id="grid"></canvas>
       <div id="zoom-info">Zoom: <span id="zoom-level">100%</span></div>

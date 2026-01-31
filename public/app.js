@@ -368,6 +368,7 @@ async function init() {
     setupPalette();
     setupMinimap();
     connectWebSocket();
+    loadLotteryWidget(); // Load lottery widget data
 
     // Redraw background when window resizes (debounced)
     window.addEventListener('resize', debounce(() => {
@@ -418,6 +419,47 @@ async function init() {
     console.error('Init error:', err);
     showStep1Status('Erreur de chargement', 'error');
   }
+}
+
+// ===== LOTTERY WIDGET =====
+async function loadLotteryWidget() {
+  try {
+    // Load tier progress
+    const res = await fetch('/api/tier/progress');
+    const data = await res.json();
+
+    if (data.ok && data.progress) {
+      updateLotteryWidget(data.progress);
+    }
+  } catch (err) {
+    console.error('Lottery widget load error:', err);
+  }
+}
+
+function updateLotteryWidget(progress) {
+  const { currentTier, nextTier, ticketsSold, progress: progressPercent, maxTierReached } = progress;
+
+  if (!currentTier) return;
+
+  // Update tier name
+  document.getElementById('widget-tier-number').textContent = currentTier.tier_number;
+
+  // Update grid size
+  document.getElementById('widget-grid-size').textContent = `${currentTier.grid_width}×${currentTier.grid_height}`;
+
+  // Update prize
+  const prizeFormatted = new Intl.NumberFormat('fr-FR').format(currentTier.prize_amount);
+  document.getElementById('widget-prize').textContent = `${prizeFormatted}€`;
+
+  // Update progress
+  const ticketsTotal = maxTierReached ? ticketsSold : (nextTier ? nextTier.min_tickets : currentTier.max_tickets);
+  document.getElementById('widget-tickets-sold').textContent = new Intl.NumberFormat('fr-FR').format(ticketsSold);
+  document.getElementById('widget-tickets-total').textContent = new Intl.NumberFormat('fr-FR').format(ticketsTotal);
+  document.getElementById('widget-progress-percent').textContent = progressPercent.toFixed(1);
+
+  // Animate progress bar
+  const progressFill = document.getElementById('widget-progress-fill');
+  progressFill.style.width = `${Math.min(100, progressPercent)}%`;
 }
 
 // ===== USER SESSION MANAGEMENT =====
@@ -1492,6 +1534,17 @@ function connectWebSocket() {
     // Update background if on step 1
     if (currentStep === 1) {
       drawBackgroundFresque();
+    }
+  });
+
+  // Listen for tier upgrades to update lottery widget
+  socket.on('tier_upgrade', (data) => {
+    console.log('🎯 Tier upgrade!', data);
+    // Reload lottery widget data
+    loadLotteryWidget();
+    // Show notification
+    if (data.newTier) {
+      showStep1Status(`🎉 Palier ${data.newTier.tier_number} atteint! Nouvelle grille: ${data.newTier.grid_width}×${data.newTier.grid_height}`, 'success');
     }
   });
 }

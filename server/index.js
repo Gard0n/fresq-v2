@@ -7,6 +7,12 @@ import { fileURLToPath } from "url";
 import { createServer } from "http";
 import { Server } from "socket.io";
 
+// Commercial services
+import * as tierService from "./services/tierService.js";
+import * as ticketService from "./services/ticketService.js";
+import * as lotteryService from "./services/lotteryService.js";
+import * as referralService from "./services/referralService.js";
+
 const app = express();
 const httpServer = createServer(app);
 
@@ -1395,6 +1401,500 @@ app.post("/api/admin/cache/clear", requireAdmin, async (req, res) => {
     ok: true,
     message: key ? `Cache key '${key}' cleared` : 'All cache cleared'
   });
+});
+
+// ===== COMMERCIAL: TIERS =====
+
+// Get all tiers
+app.get("/api/tiers", async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const tiers = await tierService.getAllTiers(client);
+    res.json({ ok: true, tiers });
+  } catch (err) {
+    log('error', 'Get tiers error', { error: err.message });
+    res.status(500).json({ error: 'get_tiers_error' });
+  } finally {
+    client.release();
+  }
+});
+
+// Get current tier
+app.get("/api/tier/current", async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const currentTier = await tierService.getCurrentTier(client);
+    res.json({ ok: true, currentTier });
+  } catch (err) {
+    log('error', 'Get current tier error', { error: err.message });
+    res.status(500).json({ error: 'get_current_tier_error' });
+  } finally {
+    client.release();
+  }
+});
+
+// Get tier progress
+app.get("/api/tier/progress", async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const progress = await tierService.getTierProgress(client);
+    res.json({ ok: true, progress });
+  } catch (err) {
+    log('error', 'Get tier progress error', { error: err.message });
+    res.status(500).json({ error: 'get_tier_progress_error' });
+  } finally {
+    client.release();
+  }
+});
+
+// ===== COMMERCIAL: TICKETS (PUBLIC) =====
+
+// Create a ticket (manual mode - for testing)
+app.post("/api/ticket/create", rateLimit(5, 60000), async (req, res) => {
+  const { email, amount } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ error: 'email_required' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const ticket = await ticketService.createTicket(client, {
+      email,
+      amount: amount || 2.00,
+      paymentProvider: 'manual'
+    });
+
+    await client.query('COMMIT');
+
+    trackEvent('ticket', 'created', ticket.order_id);
+    log('info', 'Ticket created', { orderId: ticket.order_id, email });
+
+    res.json({ ok: true, ticket });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    log('error', 'Create ticket error', { error: err.message });
+    res.status(500).json({ error: 'create_ticket_error' });
+  } finally {
+    client.release();
+  }
+});
+
+// Get ticket by order ID
+app.get("/api/ticket/:orderId", async (req, res) => {
+  const { orderId } = req.params;
+
+  const client = await pool.connect();
+  try {
+    const ticket = await ticketService.getTicketByOrderId(client, orderId);
+
+    if (!ticket) {
+      return res.status(404).json({ error: 'ticket_not_found' });
+    }
+
+    res.json({ ok: true, ticket });
+  } catch (err) {
+    log('error', 'Get ticket error', { error: err.message });
+    res.status(500).json({ error: 'get_ticket_error' });
+  } finally {
+    client.release();
+  }
+});
+
+// Get user tickets
+app.get("/api/user/tickets", async (req, res) => {
+  const { email } = req.query;
+
+  if (!email) {
+    return res.status(400).json({ error: 'email_required' });
+  }
+
+  const client = await pool.connect();
+  try {
+    const tickets = await ticketService.getUserTickets(client, email);
+    res.json({ ok: true, tickets });
+  } catch (err) {
+    log('error', 'Get user tickets error', { error: err.message });
+    res.status(500).json({ error: 'get_user_tickets_error' });
+  } finally {
+    client.release();
+  }
+});
+
+// ===== COMMERCIAL: TICKETS (ADMIN) =====
+
+// Confirm ticket payment (manual mode)
+app.post("/api/admin/ticket/:orderId/confirm", requireAdmin, async (req, res) => {
+  const { orderId } = req.params;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const result = await ticketService.confirmTicketPayment(client, orderId);
+
+    await client.query('COMMIT');
+
+    trackEvent('ticket', 'confirmed', orderId);
+    log('info', 'Ticket confirmed', { orderId, code: result.code });
+
+    // Broadcast tier upgrade if it happened
+    if (result.tierUpgrade && result.tierUpgrade.upgraded) {
+      io.emit('tier_upgrade', {
+        oldTier: result.tierUpgrade.oldTier,
+        newTier: result.tierUpgrade.newTier,
+        expansion: result.tierUpgrade.expansion
+      });
+
+      // Clear config cache to force refresh
+      clearCache('config');
+    }
+
+    res.json({ ok: true, result });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    log('error', 'Confirm ticket error', { error: err.message });
+    res.status(500).json({ error: 'confirm_ticket_error', message: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Cancel/refund ticket
+app.post("/api/admin/ticket/:orderId/cancel", requireAdmin, async (req, res) => {
+  const { orderId } = req.params;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const ticket = await ticketService.cancelTicket(client, orderId);
+
+    await client.query('COMMIT');
+
+    trackEvent('ticket', 'cancelled', orderId);
+    log('info', 'Ticket cancelled', { orderId });
+
+    res.json({ ok: true, ticket });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    log('error', 'Cancel ticket error', { error: err.message });
+    res.status(500).json({ error: 'cancel_ticket_error', message: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Get all tickets (admin)
+app.get("/api/admin/tickets", requireAdmin, async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+
+  const client = await pool.connect();
+  try {
+    const tickets = await ticketService.getRecentTickets(client, limit);
+    const stats = await ticketService.getTicketStats(client);
+
+    res.json({ ok: true, tickets, stats });
+  } catch (err) {
+    log('error', 'Get admin tickets error', { error: err.message });
+    res.status(500).json({ error: 'get_admin_tickets_error' });
+  } finally {
+    client.release();
+  }
+});
+
+// Bulk create tickets (admin)
+app.post("/api/admin/tickets/bulk", requireAdmin, async (req, res) => {
+  const { tickets } = req.body;
+
+  if (!tickets || !Array.isArray(tickets)) {
+    return res.status(400).json({ error: 'tickets_array_required' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const createdTickets = await ticketService.bulkCreateTickets(client, tickets);
+
+    await client.query('COMMIT');
+
+    trackEvent('ticket', 'bulk_created', null, createdTickets.length);
+    log('info', 'Bulk tickets created', { count: createdTickets.length });
+
+    res.json({ ok: true, tickets: createdTickets });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    log('error', 'Bulk create tickets error', { error: err.message });
+    res.status(500).json({ error: 'bulk_create_tickets_error' });
+  } finally {
+    client.release();
+  }
+});
+
+// ===== COMMERCIAL: LOTTERY/PRIZES (ADMIN) =====
+
+// Create a prize draw
+app.post("/api/admin/prize/create", requireAdmin, async (req, res) => {
+  const { tierId, name, amount, prizeType, drawDate } = req.body;
+
+  if (!tierId) {
+    return res.status(400).json({ error: 'tier_id_required' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const prize = await lotteryService.createPrizeDraw(client, {
+      tierId,
+      name,
+      amount,
+      prizeType,
+      drawDate: drawDate ? new Date(drawDate) : null
+    });
+
+    await client.query('COMMIT');
+
+    trackEvent('prize', 'created', prize.name);
+    log('info', 'Prize created', { prizeId: prize.id, name: prize.name });
+
+    res.json({ ok: true, prize });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    log('error', 'Create prize error', { error: err.message });
+    res.status(500).json({ error: 'create_prize_error', message: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Draw a prize
+app.post("/api/admin/prize/:prizeId/draw", requireAdmin, async (req, res) => {
+  const { prizeId } = req.params;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const prize = await lotteryService.drawPrize(client, parseInt(prizeId));
+
+    await client.query('COMMIT');
+
+    trackEvent('prize', 'drawn', prize.name, prize.amount);
+    log('info', 'Prize drawn', { prizeId: prize.id, winner: prize.winner_email });
+
+    // Broadcast prize draw event
+    io.emit('prize_drawn', {
+      prizeId: prize.id,
+      prizeName: prize.name,
+      tierNumber: prize.tier_number
+    });
+
+    res.json({ ok: true, prize });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    log('error', 'Draw prize error', { error: err.message });
+    res.status(500).json({ error: 'draw_prize_error', message: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Get prize by ID
+app.get("/api/admin/prize/:prizeId", requireAdmin, async (req, res) => {
+  const { prizeId } = req.params;
+
+  const client = await pool.connect();
+  try {
+    const prize = await lotteryService.getPrizeById(client, parseInt(prizeId));
+
+    if (!prize) {
+      return res.status(404).json({ error: 'prize_not_found' });
+    }
+
+    res.json({ ok: true, prize });
+  } catch (err) {
+    log('error', 'Get prize error', { error: err.message });
+    res.status(500).json({ error: 'get_prize_error' });
+  } finally {
+    client.release();
+  }
+});
+
+// Get all prizes
+app.get("/api/admin/prizes", requireAdmin, async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+
+  const client = await pool.connect();
+  try {
+    const result = await lotteryService.getAllPrizes(client, page, limit);
+    const stats = await lotteryService.getPrizeStats(client);
+
+    res.json({ ok: true, ...result, stats });
+  } catch (err) {
+    log('error', 'Get prizes error', { error: err.message });
+    res.status(500).json({ error: 'get_prizes_error' });
+  } finally {
+    client.release();
+  }
+});
+
+// Get pending prizes
+app.get("/api/admin/prizes/pending", requireAdmin, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const prizes = await lotteryService.getPendingPrizes(client);
+    res.json({ ok: true, prizes });
+  } catch (err) {
+    log('error', 'Get pending prizes error', { error: err.message });
+    res.status(500).json({ error: 'get_pending_prizes_error' });
+  } finally {
+    client.release();
+  }
+});
+
+// Mark prize as claimed
+app.post("/api/admin/prize/:prizeId/claim", requireAdmin, async (req, res) => {
+  const { prizeId } = req.params;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const prize = await lotteryService.markPrizeAsClaimed(client, parseInt(prizeId));
+
+    await client.query('COMMIT');
+
+    trackEvent('prize', 'claimed', prize.name);
+    log('info', 'Prize claimed', { prizeId: prize.id });
+
+    res.json({ ok: true, prize });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    log('error', 'Claim prize error', { error: err.message });
+    res.status(500).json({ error: 'claim_prize_error', message: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Mark prize as paid
+app.post("/api/admin/prize/:prizeId/pay", requireAdmin, async (req, res) => {
+  const { prizeId } = req.params;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const prize = await lotteryService.markPrizeAsPaid(client, parseInt(prizeId));
+
+    await client.query('COMMIT');
+
+    trackEvent('prize', 'paid', prize.name);
+    log('info', 'Prize paid', { prizeId: prize.id });
+
+    res.json({ ok: true, prize });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    log('error', 'Pay prize error', { error: err.message });
+    res.status(500).json({ error: 'pay_prize_error', message: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// ===== COMMERCIAL: REFERRALS =====
+
+// Create referral
+app.post("/api/referral/create", rateLimit(10, 60000), async (req, res) => {
+  const { userId, referredEmail } = req.body;
+
+  if (!userId || !referredEmail) {
+    return res.status(400).json({ error: 'user_id_and_email_required' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const referral = await referralService.createReferral(client, userId, referredEmail);
+
+    await client.query('COMMIT');
+
+    trackEvent('referral', 'created', referredEmail);
+    log('info', 'Referral created', { userId, referredEmail });
+
+    res.json({ ok: true, referral });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    log('error', 'Create referral error', { error: err.message });
+    res.status(500).json({ error: 'create_referral_error', message: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Check referral eligibility
+app.get("/api/referral/check", async (req, res) => {
+  const { email } = req.query;
+
+  if (!email) {
+    return res.status(400).json({ error: 'email_required' });
+  }
+
+  const client = await pool.connect();
+  try {
+    const eligibility = await referralService.checkReferralEligibility(client, email);
+    res.json({ ok: true, ...eligibility });
+  } catch (err) {
+    log('error', 'Check referral eligibility error', { error: err.message });
+    res.status(500).json({ error: 'check_eligibility_error' });
+  } finally {
+    client.release();
+  }
+});
+
+// Get user referrals
+app.get("/api/user/:userId/referrals", async (req, res) => {
+  const { userId } = req.params;
+
+  const client = await pool.connect();
+  try {
+    const referrals = await referralService.getReferralsByUser(client, parseInt(userId));
+    const stats = await referralService.getUserReferralStats(client, parseInt(userId));
+
+    res.json({ ok: true, referrals, stats });
+  } catch (err) {
+    log('error', 'Get user referrals error', { error: err.message });
+    res.status(500).json({ error: 'get_user_referrals_error' });
+  } finally {
+    client.release();
+  }
+});
+
+// Get all referrals (admin)
+app.get("/api/admin/referrals", requireAdmin, async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+
+  const client = await pool.connect();
+  try {
+    const result = await referralService.getAllReferrals(client, page, limit);
+    const stats = await referralService.getReferralStats(client);
+    const topReferrers = await referralService.getTopReferrers(client, 10);
+
+    res.json({ ok: true, ...result, stats, topReferrers });
+  } catch (err) {
+    log('error', 'Get referrals error', { error: err.message });
+    res.status(500).json({ error: 'get_referrals_error' });
+  } finally {
+    client.release();
+  }
 });
 
 // ===== WEBSOCKET CONNECTION =====

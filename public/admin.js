@@ -151,6 +151,20 @@ function switchTab(tabName) {
     case 'dashboard':
       loadDashboard();
       break;
+    case 'commercial':
+      loadCommercialStats();
+      loadTicketsTable();
+      break;
+    case 'lottery':
+      loadLotteryStats();
+      loadTierOptions();
+      loadPendingPrizes();
+      loadPrizesTable();
+      break;
+    case 'referrals':
+      loadReferralStats();
+      loadReferralsTable();
+      break;
     case 'users':
       loadUsers();
       break;
@@ -624,6 +638,490 @@ document.getElementById('save-palette-btn').addEventListener('click', async () =
     btn.textContent = '💾 Enregistrer la palette';
   }
 });
+
+// ===== COMMERCIAL FEATURES =====
+
+async function loadCommercialStats() {
+  try {
+    // Load tier progress
+    const tierProgressRes = await fetch('/api/tier/progress');
+    const tierProgressData = await tierProgressRes.json();
+
+    if (tierProgressData.ok) {
+      const { currentTier, nextTier, ticketsSold, ticketsNeeded, progress } = tierProgressData.progress;
+
+      document.getElementById('stat-current-tier').textContent = currentTier ? `Palier ${currentTier.tier_number}` : '-';
+      document.getElementById('stat-tier-info').textContent = currentTier ? `${currentTier.grid_width}×${currentTier.grid_height}` : '-';
+      document.getElementById('stat-tier-progress').textContent = `${progress.toFixed(1)}%`;
+      document.getElementById('stat-next-tier').textContent = nextTier ? `→ Palier ${nextTier.tier_number} (${ticketsNeeded} tickets)` : 'Palier max atteint';
+    }
+
+    // Load ticket stats
+    const ticketsRes = await apiCall('/api/admin/tickets');
+    if (ticketsRes.ok) {
+      const { stats } = ticketsRes;
+      document.getElementById('stat-tickets-sold').textContent = stats.paid || '0';
+      document.getElementById('stat-tickets-pending').textContent = stats.pending || '0';
+      document.getElementById('stat-revenue').textContent = `${parseFloat(stats.total_revenue || 0).toFixed(2)}€`;
+    }
+  } catch (err) {
+    console.error('Error loading commercial stats:', err);
+  }
+}
+
+async function loadTicketsTable() {
+  try {
+    const res = await apiCall('/api/admin/tickets');
+    if (!res.ok) throw new Error('Failed to load tickets');
+
+    const { tickets } = res;
+    const container = document.getElementById('tickets-table-container');
+
+    if (tickets.length === 0) {
+      container.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">Aucun ticket</p>';
+      return;
+    }
+
+    const html = `
+      <table>
+        <thead>
+          <tr>
+            <th>Order ID</th>
+            <th>Email</th>
+            <th>Montant</th>
+            <th>Status</th>
+            <th>Code</th>
+            <th>Palier</th>
+            <th>Date</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tickets.map(ticket => `
+            <tr>
+              <td><code>${ticket.order_id}</code></td>
+              <td>${ticket.email}</td>
+              <td>${parseFloat(ticket.amount).toFixed(2)}€</td>
+              <td><span class="badge ${ticket.status}">${ticket.status}</span></td>
+              <td>${ticket.code || '-'}</td>
+              <td>Palier ${ticket.tier_number || '-'}</td>
+              <td>${new Date(ticket.created_at).toLocaleString('fr-FR')}</td>
+              <td>
+                ${ticket.status === 'pending' ? `<button class="btn-sm primary" onclick="confirmTicket('${ticket.order_id}')">✓ Confirmer</button>` : ''}
+                ${ticket.status === 'paid' ? `<button class="btn-sm danger" onclick="cancelTicket('${ticket.order_id}')">✗ Annuler</button>` : ''}
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+
+    container.innerHTML = html;
+  } catch (err) {
+    console.error('Error loading tickets:', err);
+    document.getElementById('tickets-table-container').innerHTML = '<p class="error">Erreur de chargement</p>';
+  }
+}
+
+document.getElementById('create-ticket-btn').addEventListener('click', async () => {
+  const email = document.getElementById('ticket-email').value.trim();
+  const amount = parseFloat(document.getElementById('ticket-amount').value);
+
+  if (!email) {
+    alert('Email requis');
+    return;
+  }
+
+  if (!amount || amount <= 0) {
+    alert('Montant invalide');
+    return;
+  }
+
+  try {
+    const btn = document.getElementById('create-ticket-btn');
+    btn.disabled = true;
+    btn.textContent = 'Création...';
+
+    const res = await apiCall('/api/ticket/create', {
+      method: 'POST',
+      body: JSON.stringify({ email, amount })
+    });
+
+    if (!res.ok) throw new Error('Failed to create ticket');
+
+    const resultDiv = document.getElementById('ticket-result');
+    resultDiv.innerHTML = `
+      <div class="success-box">
+        ✓ Ticket créé avec succès!<br>
+        <strong>Order ID:</strong> ${res.ticket.order_id}<br>
+        <button onclick="confirmTicket('${res.ticket.order_id}')">Confirmer le paiement maintenant</button>
+      </div>
+    `;
+
+    document.getElementById('ticket-email').value = '';
+    loadTicketsTable();
+    loadCommercialStats();
+  } catch (err) {
+    alert('Erreur lors de la création du ticket');
+    console.error(err);
+  } finally {
+    const btn = document.getElementById('create-ticket-btn');
+    btn.disabled = false;
+    btn.textContent = '➕ Créer Ticket';
+  }
+});
+
+async function confirmTicket(orderId) {
+  if (!confirm(`Confirmer le paiement du ticket ${orderId} ?`)) return;
+
+  try {
+    const res = await apiCall(`/api/admin/ticket/${orderId}/confirm`, {
+      method: 'POST'
+    });
+
+    if (!res.ok) throw new Error(res.message || 'Failed to confirm ticket');
+
+    alert(`Ticket confirmé!\nCode généré: ${res.result.code}`);
+
+    loadTicketsTable();
+    loadCommercialStats();
+  } catch (err) {
+    alert(`Erreur: ${err.message}`);
+    console.error(err);
+  }
+}
+
+async function cancelTicket(orderId) {
+  if (!confirm(`Annuler/rembourser le ticket ${orderId} ?`)) return;
+
+  try {
+    const res = await apiCall(`/api/admin/ticket/${orderId}/cancel`, {
+      method: 'POST'
+    });
+
+    if (!res.ok) throw new Error(res.message || 'Failed to cancel ticket');
+
+    alert('Ticket annulé');
+    loadTicketsTable();
+    loadCommercialStats();
+  } catch (err) {
+    alert(`Erreur: ${err.message}`);
+    console.error(err);
+  }
+}
+
+// ===== LOTTERY FEATURES =====
+
+async function loadLotteryStats() {
+  try {
+    const res = await apiCall('/api/admin/prizes');
+    if (!res.ok) throw new Error('Failed to load lottery stats');
+
+    const { stats } = res;
+    document.getElementById('stat-prizes-pending').textContent = stats.pending || '0';
+    document.getElementById('stat-prizes-drawn').textContent = stats.drawn || '0';
+    document.getElementById('stat-prizes-claimed').textContent = stats.claimed || '0';
+    document.getElementById('stat-prizes-paid').textContent = `${stats.paid || '0'} (${parseFloat(stats.paid_amount || 0).toFixed(0)}€)`;
+  } catch (err) {
+    console.error('Error loading lottery stats:', err);
+  }
+}
+
+async function loadTierOptions() {
+  try {
+    const res = await fetch('/api/tiers');
+    const data = await res.json();
+
+    if (data.ok) {
+      const select = document.getElementById('prize-tier');
+      select.innerHTML = '<option value="">Sélectionner un palier...</option>' +
+        data.tiers.map(tier => `<option value="${tier.id}">Palier ${tier.tier_number} - ${tier.prize_amount}€</option>`).join('');
+    }
+  } catch (err) {
+    console.error('Error loading tiers:', err);
+  }
+}
+
+async function loadPendingPrizes() {
+  try {
+    const res = await apiCall('/api/admin/prizes/pending');
+    if (!res.ok) throw new Error('Failed to load pending prizes');
+
+    const { prizes } = res;
+    const container = document.getElementById('pending-prizes-container');
+
+    if (prizes.length === 0) {
+      container.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">Aucun gain en attente</p>';
+      return;
+    }
+
+    const html = prizes.map(prize => `
+      <div class="prize-card">
+        <h3>${prize.name}</h3>
+        <p>Palier ${prize.tier_number} - ${parseFloat(prize.amount).toFixed(2)}€</p>
+        <p>Type: ${prize.prize_type}</p>
+        <button class="btn primary" onclick="drawPrize(${prize.id})">🎲 Tirer au sort</button>
+      </div>
+    `).join('');
+
+    container.innerHTML = html;
+  } catch (err) {
+    console.error('Error loading pending prizes:', err);
+    document.getElementById('pending-prizes-container').innerHTML = '<p class="error">Erreur de chargement</p>';
+  }
+}
+
+async function loadPrizesTable() {
+  try {
+    const res = await apiCall('/api/admin/prizes');
+    if (!res.ok) throw new Error('Failed to load prizes');
+
+    const { prizes } = res;
+    const container = document.getElementById('prizes-table-container');
+
+    if (prizes.length === 0) {
+      container.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">Aucun gain</p>';
+      return;
+    }
+
+    const html = `
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nom</th>
+            <th>Montant</th>
+            <th>Palier</th>
+            <th>Type</th>
+            <th>Statut</th>
+            <th>Gagnant</th>
+            <th>Date</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${prizes.map(prize => `
+            <tr>
+              <td>${prize.id}</td>
+              <td>${prize.name}</td>
+              <td>${parseFloat(prize.amount).toFixed(2)}€</td>
+              <td>Palier ${prize.tier_number || '-'}</td>
+              <td>${prize.prize_type}</td>
+              <td><span class="badge ${prize.status}">${prize.status}</span></td>
+              <td>${prize.winner_email || '-'}</td>
+              <td>${prize.draw_date ? new Date(prize.draw_date).toLocaleString('fr-FR') : '-'}</td>
+              <td>
+                ${prize.status === 'pending' ? `<button class="btn-sm primary" onclick="drawPrize(${prize.id})">🎲 Tirer</button>` : ''}
+                ${prize.status === 'drawn' ? `<button class="btn-sm" onclick="claimPrize(${prize.id})">✓ Marquer réclamé</button>` : ''}
+                ${prize.status === 'claimed' ? `<button class="btn-sm" onclick="payPrize(${prize.id})">💰 Marquer payé</button>` : ''}
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+
+    container.innerHTML = html;
+  } catch (err) {
+    console.error('Error loading prizes:', err);
+    document.getElementById('prizes-table-container').innerHTML = '<p class="error">Erreur de chargement</p>';
+  }
+}
+
+document.getElementById('create-prize-btn').addEventListener('click', async () => {
+  const tierId = document.getElementById('prize-tier').value;
+  const name = document.getElementById('prize-name').value.trim();
+  const amount = parseFloat(document.getElementById('prize-amount').value);
+  const prizeType = document.getElementById('prize-type').value;
+
+  if (!tierId) {
+    alert('Sélectionner un palier');
+    return;
+  }
+
+  try {
+    const btn = document.getElementById('create-prize-btn');
+    btn.disabled = true;
+    btn.textContent = 'Création...';
+
+    const res = await apiCall('/api/admin/prize/create', {
+      method: 'POST',
+      body: JSON.stringify({ tierId: parseInt(tierId), name, amount, prizeType })
+    });
+
+    if (!res.ok) throw new Error(res.message || 'Failed to create prize');
+
+    const resultDiv = document.getElementById('prize-result');
+    resultDiv.innerHTML = `<div class="success-box">✓ Gain créé avec succès! ID: ${res.prize.id}</div>`;
+
+    document.getElementById('prize-name').value = '';
+    document.getElementById('prize-amount').value = '';
+
+    loadPendingPrizes();
+    loadPrizesTable();
+    loadLotteryStats();
+  } catch (err) {
+    alert(`Erreur: ${err.message}`);
+    console.error(err);
+  } finally {
+    const btn = document.getElementById('create-prize-btn');
+    btn.disabled = false;
+    btn.textContent = '➕ Créer Gain';
+  }
+});
+
+async function drawPrize(prizeId) {
+  if (!confirm(`Tirer au sort le gain #${prizeId} ?`)) return;
+
+  try {
+    const res = await apiCall(`/api/admin/prize/${prizeId}/draw`, {
+      method: 'POST'
+    });
+
+    if (!res.ok) throw new Error(res.message || 'Failed to draw prize');
+
+    alert(`Gain tiré au sort!\nGagnant: ${res.prize.winner_email}\nCode: ${res.prize.winner_code}`);
+
+    loadPendingPrizes();
+    loadPrizesTable();
+    loadLotteryStats();
+  } catch (err) {
+    alert(`Erreur: ${err.message}`);
+    console.error(err);
+  }
+}
+
+async function claimPrize(prizeId) {
+  if (!confirm(`Marquer le gain #${prizeId} comme réclamé ?`)) return;
+
+  try {
+    const res = await apiCall(`/api/admin/prize/${prizeId}/claim`, {
+      method: 'POST'
+    });
+
+    if (!res.ok) throw new Error(res.message || 'Failed to claim prize');
+
+    alert('Gain marqué comme réclamé');
+    loadPrizesTable();
+    loadLotteryStats();
+  } catch (err) {
+    alert(`Erreur: ${err.message}`);
+    console.error(err);
+  }
+}
+
+async function payPrize(prizeId) {
+  if (!confirm(`Marquer le gain #${prizeId} comme payé ?`)) return;
+
+  try {
+    const res = await apiCall(`/api/admin/prize/${prizeId}/pay`, {
+      method: 'POST'
+    });
+
+    if (!res.ok) throw new Error(res.message || 'Failed to pay prize');
+
+    alert('Gain marqué comme payé');
+    loadPrizesTable();
+    loadLotteryStats();
+  } catch (err) {
+    alert(`Erreur: ${err.message}`);
+    console.error(err);
+  }
+}
+
+// ===== REFERRAL FEATURES =====
+
+async function loadReferralStats() {
+  try {
+    const res = await apiCall('/api/admin/referrals');
+    if (!res.ok) throw new Error('Failed to load referral stats');
+
+    const { stats, topReferrers } = res;
+    document.getElementById('stat-referrals-pending').textContent = stats.pending || '0';
+    document.getElementById('stat-referrals-completed').textContent = stats.completed || '0';
+    document.getElementById('stat-referrals-total').textContent = stats.total || '0';
+    document.getElementById('stat-referrers-count').textContent = stats.total_referrers || '0';
+
+    // Load top referrers
+    const container = document.getElementById('top-referrers-container');
+    if (topReferrers.length === 0) {
+      container.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">Aucun parrain actif</p>';
+    } else {
+      const html = `
+        <table>
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>Parrainages réussis</th>
+              <th>Total parrainages</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${topReferrers.map(ref => `
+              <tr>
+                <td>${ref.referrer_email}</td>
+                <td>${ref.completed_referrals}</td>
+                <td>${ref.total_referrals}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+      container.innerHTML = html;
+    }
+  } catch (err) {
+    console.error('Error loading referral stats:', err);
+  }
+}
+
+async function loadReferralsTable() {
+  try {
+    const res = await apiCall('/api/admin/referrals');
+    if (!res.ok) throw new Error('Failed to load referrals');
+
+    const { referrals } = res;
+    const container = document.getElementById('referrals-table-container');
+
+    if (referrals.length === 0) {
+      container.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">Aucun parrainage</p>';
+      return;
+    }
+
+    const html = `
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Parrain</th>
+            <th>Parrainé</th>
+            <th>Statut</th>
+            <th>Code Gratuit</th>
+            <th>Date création</th>
+            <th>Date complété</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${referrals.map(ref => `
+            <tr>
+              <td>${ref.id}</td>
+              <td>${ref.referrer_email}</td>
+              <td>${ref.referred_email}</td>
+              <td><span class="badge ${ref.status}">${ref.status}</span></td>
+              <td>${ref.free_code || '-'}</td>
+              <td>${new Date(ref.created_at).toLocaleString('fr-FR')}</td>
+              <td>${ref.completed_at ? new Date(ref.completed_at).toLocaleString('fr-FR') : '-'}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+
+    container.innerHTML = html;
+  } catch (err) {
+    console.error('Error loading referrals:', err);
+    document.getElementById('referrals-table-container').innerHTML = '<p class="error">Erreur de chargement</p>';
+  }
+}
 
 // ===== INITIALIZATION =====
 (async function init() {

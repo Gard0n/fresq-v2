@@ -496,6 +496,132 @@
         padding: 8px;
       }
     }
+
+    /* ===== COMMERCIAL STYLES ===== */
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .badge.pending {
+      background: rgba(255, 193, 7, 0.2);
+      color: #FFC107;
+      border: 1px solid #FFC107;
+    }
+
+    .badge.paid {
+      background: rgba(76, 175, 80, 0.2);
+      color: #4CAF50;
+      border: 1px solid #4CAF50;
+    }
+
+    .badge.refunded, .badge.cancelled {
+      background: rgba(244, 67, 54, 0.2);
+      color: #F44336;
+      border: 1px solid #F44336;
+    }
+
+    .badge.drawn {
+      background: rgba(33, 150, 243, 0.2);
+      color: #2196F3;
+      border: 1px solid #2196F3;
+    }
+
+    .badge.claimed {
+      background: rgba(156, 39, 176, 0.2);
+      color: #9C27B0;
+      border: 1px solid #9C27B0;
+    }
+
+    .badge.completed {
+      background: rgba(76, 175, 80, 0.2);
+      color: #4CAF50;
+      border: 1px solid #4CAF50;
+    }
+
+    .success-box {
+      background: rgba(76, 175, 80, 0.1);
+      border: 1px solid #4CAF50;
+      border-radius: 6px;
+      padding: 16px;
+      margin: 16px 0;
+      color: #4CAF50;
+    }
+
+    .success-box strong {
+      color: #6FE6FF;
+    }
+
+    .success-box button {
+      margin-top: 12px;
+      padding: 8px 16px;
+      background: linear-gradient(135deg, #2a4 0%, #1a3 100%);
+      border: 1px solid #3b5;
+      border-radius: 6px;
+      color: #fff;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .prize-card {
+      background: rgba(26, 31, 46, 0.6);
+      border: 1px solid #2a3f5f;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 12px 0;
+    }
+
+    .prize-card h3 {
+      color: #6FE6FF;
+      margin-bottom: 8px;
+      font-size: 18px;
+    }
+
+    .prize-card p {
+      color: #aaa;
+      margin: 6px 0;
+      font-size: 14px;
+    }
+
+    .prize-card button {
+      margin-top: 16px;
+    }
+
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 12px;
+      border-radius: 4px;
+      border: 1px solid #2a3f5f;
+      background: rgba(26, 31, 46, 0.8);
+      color: #fff;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-sm:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(111, 230, 255, 0.2);
+    }
+
+    .btn-sm.primary {
+      background: linear-gradient(135deg, #2a4 0%, #1a3 100%);
+      border: 1px solid #3b5;
+    }
+
+    .btn-sm.danger {
+      background: linear-gradient(135deg, #c33 0%, #a22 100%);
+      border: 1px solid #d44;
+    }
+
+    .error {
+      color: #F44336;
+      text-align: center;
+      padding: 20px;
+    }
   </style>
 </head>
 <body>
@@ -534,6 +660,9 @@
 
     <div class="dashboard-tabs">
       <button class="tab active" data-tab="dashboard">📊 Dashboard</button>
+      <button class="tab" data-tab="commercial">💰 Commercial</button>
+      <button class="tab" data-tab="lottery">🎰 Loterie</button>
+      <button class="tab" data-tab="referrals">🤝 Parrainages</button>
       <button class="tab" data-tab="users">👥 Utilisateurs</button>
       <button class="tab" data-tab="codes">🎫 Codes</button>
       <button class="tab" data-tab="grid">🎨 Grille</button>
@@ -631,6 +760,159 @@
           </div>
 
           <div id="cell-info-container"></div>
+        </div>
+      </div>
+
+      <!-- TAB: Commercial -->
+      <div class="tab-panel" id="panel-commercial">
+        <div class="section">
+          <h2>💰 Gestion Commerciale</h2>
+
+          <div class="stats-grid" id="commercial-stats">
+            <div class="stat-card">
+              <h3>Palier Actuel</h3>
+              <div class="value" id="stat-current-tier">-</div>
+              <div class="sub" id="stat-tier-info">-</div>
+            </div>
+            <div class="stat-card">
+              <h3>Tickets Vendus</h3>
+              <div class="value" id="stat-tickets-sold">-</div>
+              <div class="sub" id="stat-tickets-pending">- en attente</div>
+            </div>
+            <div class="stat-card">
+              <h3>Revenus</h3>
+              <div class="value" id="stat-revenue">-</div>
+              <div class="sub">Total encaissé</div>
+            </div>
+            <div class="stat-card">
+              <h3>Progression</h3>
+              <div class="value" id="stat-tier-progress">-</div>
+              <div class="sub" id="stat-next-tier">Prochain palier</div>
+            </div>
+          </div>
+
+          <div class="section">
+            <h2>🎫 Créer un Ticket</h2>
+            <div class="toolbar">
+              <input type="email" id="ticket-email" placeholder="Email du client" style="flex: 1;">
+              <input type="number" id="ticket-amount" placeholder="Montant (€)" value="2.00" step="0.01" min="0.01" style="width: 120px;">
+              <button id="create-ticket-btn" class="primary">➕ Créer Ticket</button>
+            </div>
+            <div id="ticket-result"></div>
+          </div>
+
+          <div class="section">
+            <h2>📋 Tickets Récents</h2>
+            <div id="tickets-table-container">
+              <div class="loading">Chargement...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: Lottery -->
+      <div class="tab-panel" id="panel-lottery">
+        <div class="section">
+          <h2>🎰 Gestion Loterie & Gains</h2>
+
+          <div class="stats-grid" id="lottery-stats">
+            <div class="stat-card">
+              <h3>Gains en attente</h3>
+              <div class="value" id="stat-prizes-pending">-</div>
+              <div class="sub">À tirer</div>
+            </div>
+            <div class="stat-card">
+              <h3>Gains tirés</h3>
+              <div class="value" id="stat-prizes-drawn">-</div>
+              <div class="sub">En attente de réclamation</div>
+            </div>
+            <div class="stat-card">
+              <h3>Gains réclamés</h3>
+              <div class="value" id="stat-prizes-claimed">-</div>
+              <div class="sub">En attente de paiement</div>
+            </div>
+            <div class="stat-card">
+              <h3>Gains payés</h3>
+              <div class="value" id="stat-prizes-paid">-</div>
+              <div class="sub">Total distribué</div>
+            </div>
+          </div>
+
+          <div class="section">
+            <h2>➕ Créer un Tirage</h2>
+            <div class="toolbar">
+              <select id="prize-tier" style="flex: 1;">
+                <option value="">Sélectionner un palier...</option>
+              </select>
+              <input type="text" id="prize-name" placeholder="Nom du gain (optionnel)" style="flex: 1;">
+              <input type="number" id="prize-amount" placeholder="Montant (€)" step="0.01" min="0.01" style="width: 140px;">
+              <select id="prize-type" style="width: 140px;">
+                <option value="main">Principal</option>
+                <option value="secondary">Secondaire</option>
+                <option value="daily">Quotidien</option>
+              </select>
+              <button id="create-prize-btn" class="primary">➕ Créer Gain</button>
+            </div>
+            <div id="prize-result"></div>
+          </div>
+
+          <div class="section">
+            <h2>🎲 Gains à Tirer</h2>
+            <div id="pending-prizes-container">
+              <div class="loading">Chargement...</div>
+            </div>
+          </div>
+
+          <div class="section">
+            <h2>📋 Tous les Gains</h2>
+            <div id="prizes-table-container">
+              <div class="loading">Chargement...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: Referrals -->
+      <div class="tab-panel" id="panel-referrals">
+        <div class="section">
+          <h2>🤝 Système de Parrainage</h2>
+
+          <div class="stats-grid" id="referral-stats">
+            <div class="stat-card">
+              <h3>Parrainages actifs</h3>
+              <div class="value" id="stat-referrals-pending">-</div>
+              <div class="sub">En attente</div>
+            </div>
+            <div class="stat-card">
+              <h3>Parrainages réussis</h3>
+              <div class="value" id="stat-referrals-completed">-</div>
+              <div class="sub">Codes gratuits générés</div>
+            </div>
+            <div class="stat-card">
+              <h3>Total parrainages</h3>
+              <div class="value" id="stat-referrals-total">-</div>
+              <div class="sub">Depuis le lancement</div>
+            </div>
+            <div class="stat-card">
+              <h3>Top Parrains</h3>
+              <div class="value" id="stat-referrers-count">-</div>
+              <div class="sub">Utilisateurs actifs</div>
+            </div>
+          </div>
+
+          <div class="section">
+            <h2>🏆 Top Parrains</h2>
+            <div id="top-referrers-container">
+              <div class="loading">Chargement...</div>
+            </div>
+          </div>
+
+          <div class="section">
+            <h2>📋 Tous les Parrainages</h2>
+            <div id="referrals-table-container">
+              <div class="loading">Chargement...</div>
+            </div>
+          </div>
         </div>
       </div>
 

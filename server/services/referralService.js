@@ -112,8 +112,8 @@ export async function completeReferral(client, referredEmail) {
 
     // Insert code
     const codeResult = await client.query(`
-      INSERT INTO codes (code, user_id, claimed_at)
-      VALUES ($1, $2, NOW())
+      INSERT INTO codes (code, user_id)
+      VALUES ($1, $2)
       RETURNING id
     `, [freeCode, referral.referrer_user_id]);
 

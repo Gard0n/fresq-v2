@@ -1713,3 +1713,14 @@ if (viewCellHistoryBtn) {
 
 // ===== START =====
 init();
+
+
+// ===== TICKET PURCHASE =====
+function openTicketPurchase() {
+  // TODO: Integrate with Stripe payment
+  alert('Paiement Stripe à venir ! 🎟️
+
+Cette fonctionnalité ouvrira bientôt une page de paiement sécurisée.');
+  console.log('Ticket purchase clicked - Stripe integration pending');
+}
+

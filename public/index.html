@@ -891,21 +891,16 @@
         font-size: 11px !important;
       }
 
-      /* Move lottery widget to top-right on mobile, below theme button */
+      /* Move lottery widget to top-right on mobile */
       #lottery-widget {
         left: auto !important;
         right: 10px !important;
-        top: 60px !important;
+        top: 10px !important;
         transform: none !important;
         font-size: 9px !important;
         padding: 4px 8px !important;
         gap: 3px !important;
         max-width: calc(100vw - 70px) !important;
-      }
-
-      /* Hide lottery separators on mobile for compactness */
-      .lottery-sep {
-        display: none !important;
       }
 
       /* Canvas container: leave room for controls at bottom */
@@ -1305,23 +1300,16 @@
       </div>
     </div>
 
-    <!-- STEP 2 Controls: Code Management (2 Columns Layout) -->
+    <!-- STEP 2 Controls: Ticket Purchase CTA -->
     <div id="step2-controls" class="hidden">
-      <div class="code-columns-layout">
-
-        <!-- Colonne 1: Mes codes -->
-        <div class="code-column-left">
-          <h3 style="font-size: 11px; color: #6FE6FF; margin: 0 0 8px 0; font-weight: 600;">📌 Mes codes</h3>
-          <div id="my-codes-list" style="display: flex; flex-direction: column; gap: 4px; max-height: 120px; overflow-y: auto;"></div>
-        </div>
-
-        <!-- Colonne 2: Ajouter un code -->
-        <div class="code-column-right">
-          <h3 style="font-size: 11px; color: #6FE6FF; margin: 0 0 8px 0; font-weight: 600;">➕ Ajouter</h3>
-          <input type="text" id="new-code-input" placeholder="Code" style="width: 100%; padding: 6px 8px; font-size: 11px; border: 1px solid #2a3f5f; background: rgba(10, 14, 26, 0.8); color: #fff; border-radius: 4px; margin-bottom: 6px;">
-          <button id="add-code-btn" style="width: 100%; padding: 6px 12px; font-size: 11px; background: linear-gradient(135deg, #2a4 0%, #1a3 100%); border: 1px solid #3b5; color: #fff; border-radius: 4px; cursor: pointer; font-weight: 600;">Ajouter</button>
-          <div id="add-code-status" style="margin-top: 6px; font-size: 10px; min-height: 14px; text-align: center;"></div>
-        </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 12px 20px; text-align: center;">
+        <p style="margin: 0; font-size: 13px; color: #e0e6ed; line-height: 1.4;">
+          🎨 <strong>Tu veux participer à la FRESQ et tenter ta chance ?</strong><br>
+          Clique ici pour prendre ton ticket !
+        </p>
+        <button id="buy-ticket-btn" onclick="openTicketPurchase()" style="padding: 12px 32px; font-size: 14px; font-weight: 700; background: linear-gradient(135deg, #6FE6FF 0%, #2aa 100%); border: 2px solid #6FE6FF; color: #0a0e1a; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 12px rgba(111, 230, 255, 0.3); transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.5px;">
+          🎟️ Prendre mon ticket
+        </button>
       </div>
     </div>
 
@@ -1456,6 +1444,6 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="/share.js?v=3"></script>
-  <script src="/app.js?v=7"></script>
+  <script src="/app.js?v=8"></script>
 </body>
 </html>

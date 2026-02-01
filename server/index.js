@@ -2084,7 +2084,23 @@ io.on('connection', (socket) => {
 });
 
 // ===== STATIC FILES =====
-app.use(express.static(path.join(__dirname, "..", "public")));
+// Disable cache in development
+if (process.env.NODE_ENV === 'development') {
+  app.use((req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    next();
+  });
+}
+
+app.use(express.static(path.join(__dirname, "..", "public"), {
+  setHeaders: (res, filePath) => {
+    if (process.env.NODE_ENV === 'development') {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    }
+  }
+}));
 
 httpServer.listen(PORT, () => {
   console.log(`🚀 FRESQ V2 running on http://localhost:${PORT}`);

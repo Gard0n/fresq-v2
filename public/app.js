@@ -481,41 +481,42 @@ function loadUserSession() {
 
 function updateMyCodesList() {
   if (!userCodes || userCodes.length === 0) {
-    myCodesList.innerHTML = '';
-    noCodesMsg.style.display = 'block';
+    myCodesList.innerHTML = '<span style="font-size: 10px; color: #666;">Aucun code</span>';
     return;
   }
 
-  noCodesMsg.style.display = 'none';
   myCodesList.innerHTML = '';
 
   userCodes.forEach((codeData) => {
-    const div = document.createElement('div');
-    div.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: rgba(42, 63, 95, 0.25); border-radius: 4px; border: 1px solid #2a3f5f;';
-
     const isPainted = codeData.x !== null && codeData.color !== null;
     const colorHex = isPainted ? palette[codeData.color - 1] : '#888';
 
-    div.innerHTML = `
-      <div style="display: flex; gap: 8px; align-items: center; flex: 1;">
-        <div style="width: 14px; height: 14px; background: ${colorHex}; border-radius: 3px; border: 1px solid #444;"></div>
-        <span style="font-size: 11px; color: #aaa; font-weight: 500;">${codeData.code}</span>
-        ${isPainted ? `<span style="font-size: 10px; color: #666;">(${codeData.x}, ${codeData.y})</span>` : '<span style="font-size: 10px; color: #666;">Non assigné</span>'}
+    const badge = document.createElement('div');
+    badge.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 5px 8px; background: rgba(42, 63, 95, 0.3); border-radius: 4px; border: 1px solid #2a3f5f; cursor: pointer; transition: all 0.2s;';
+
+    badge.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0;">
+        <div style="width: 10px; height: 10px; background: ${colorHex}; border-radius: 2px; border: 1px solid #444; flex-shrink: 0;"></div>
+        <span style="font-size: 10px; color: #aaa; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${codeData.code}</span>
       </div>
-      <button class="repaint-btn" data-code="${codeData.code}" style="padding: 4px 10px; font-size: 10px; background: linear-gradient(135deg, #2a4 0%, #1a3 100%); border: 1px solid #3b5; color: #fff; border-radius: 3px; cursor: pointer; white-space: nowrap;">
-        ${isPainted ? '🎨 Repeindre' : '➕ Peindre'}
-      </button>
+      <span style="font-size: 9px; color: #666; flex-shrink: 0;">${isPainted ? `(${codeData.x},${codeData.y})` : '●'}</span>
     `;
 
-    myCodesList.appendChild(div);
-  });
-
-  // Add event listeners to repaint buttons
-  document.querySelectorAll('.repaint-btn').forEach(btn => {
-    btn.onclick = () => {
-      const code = btn.dataset.code;
-      startPaintingWithCode(code);
+    badge.onclick = () => {
+      startPaintingWithCode(codeData.code);
     };
+
+    badge.onmouseenter = () => {
+      badge.style.background = 'rgba(42, 63, 95, 0.5)';
+      badge.style.borderColor = '#6FE6FF';
+    };
+
+    badge.onmouseleave = () => {
+      badge.style.background = 'rgba(42, 63, 95, 0.3)';
+      badge.style.borderColor = '#2a3f5f';
+    };
+
+    myCodesList.appendChild(badge);
   });
 }
 
@@ -716,13 +717,16 @@ addCodeBtn.onclick = async () => {
 
     updateMyCodesList();
     newCodeInput.value = '';
-    showAddCodeStatus('Code ajouté !', 'success');
 
-    // If code is already assigned, ask to repaint, otherwise start painting
+    // If code is already assigned, show info
     if (data.assigned) {
-      showAddCodeStatus(`Code ajouté ! Case (${data.assigned.x}, ${data.assigned.y})`, 'success');
+      showAddCodeStatus(`Code ajouté ! Case (${data.assigned.x}, ${data.assigned.y}) - Clique sur le code pour repeindre`, 'success');
     } else {
-      showAddCodeStatus('Code ajouté ! Clique sur "Peindre" pour choisir une case', 'success');
+      // Auto-start painting mode for new code
+      showAddCodeStatus('Code ajouté ! Choisis maintenant ta case...', 'success');
+      setTimeout(() => {
+        startPaintingWithCode(data.code);
+      }, 500);
     }
   } catch (err) {
     showAddCodeStatus('Erreur', 'error');
@@ -824,13 +828,13 @@ confirmPaintBtn.onclick = async () => {
     hapticFeedback('success');
     showStep3Info('Case peinte !', 'success');
 
-    // Go back to step 2 after short delay
+    // Go back to step 2 after very short delay
     setTimeout(() => {
       currentCode = null;
       myCell = null;
       activeColor = 1;
       showStep(2);
-    }, 1000);
+    }, 100);
   } catch (err) {
     showStep3Info('Erreur de peinture', 'error');
     console.error(err);

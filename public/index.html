@@ -1180,24 +1180,22 @@
       </div>
     </div>
 
-    <!-- STEP 2 Controls: Code Management (Compact) -->
+    <!-- STEP 2 Controls: Code Management (2 Columns Layout) -->
     <div id="step2-controls" class="hidden">
-      <div style="display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 600px; margin: 0 auto;">
-        <!-- My Codes List (Compact) -->
-        <div id="my-codes-section" style="background: rgba(26, 31, 46, 0.9); border-radius: 6px; padding: 10px 12px;">
-          <h3 style="font-size: 12px; color: #6FE6FF; margin-bottom: 8px; font-weight: 600;">📌 Mes codes</h3>
-          <div id="my-codes-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 80px; overflow-y: auto;"></div>
-          <div id="no-codes-msg" style="color: #888; font-size: 11px; display: none;">Aucun code</div>
+      <div style="display: flex; gap: 12px; width: 100%; max-width: 800px; margin: 0 auto; padding: 0 20px;">
+
+        <!-- Colonne 1: Mes codes -->
+        <div style="flex: 1; background: rgba(26, 31, 46, 0.9); border-radius: 6px; padding: 10px 12px;">
+          <h3 style="font-size: 11px; color: #6FE6FF; margin: 0 0 8px 0; font-weight: 600;">📌 Mes codes</h3>
+          <div id="my-codes-list" style="display: flex; flex-direction: column; gap: 4px; max-height: 120px; overflow-y: auto;"></div>
         </div>
 
-        <!-- Add New Code (Compact Inline) -->
-        <div style="background: rgba(26, 31, 46, 0.9); border-radius: 6px; padding: 8px 12px;">
-          <div style="display: flex; gap: 8px; align-items: center;">
-            <span style="font-size: 11px; color: #6FE6FF; font-weight: 600; white-space: nowrap;">➕</span>
-            <input type="text" id="new-code-input" placeholder="ABC-12345" style="flex: 1; padding: 8px 10px; font-size: 12px; border: 1px solid #2a3f5f; background: rgba(10, 14, 26, 0.8); color: #fff; border-radius: 4px;">
-            <button id="add-code-btn" style="padding: 8px 16px; font-size: 12px; background: linear-gradient(135deg, #2a4 0%, #1a3 100%); border: 1px solid #3b5; color: #fff; border-radius: 4px; cursor: pointer; font-weight: 600; white-space: nowrap;">Ajouter</button>
-          </div>
-          <div id="add-code-status" style="margin-top: 6px; font-size: 11px; min-height: 16px;"></div>
+        <!-- Colonne 2: Ajouter un code -->
+        <div style="width: 180px; background: rgba(26, 31, 46, 0.9); border-radius: 6px; padding: 10px 12px; display: flex; flex-direction: column; justify-content: center;">
+          <h3 style="font-size: 11px; color: #6FE6FF; margin: 0 0 8px 0; font-weight: 600;">➕ Ajouter</h3>
+          <input type="text" id="new-code-input" placeholder="Code" style="width: 100%; padding: 6px 8px; font-size: 11px; border: 1px solid #2a3f5f; background: rgba(10, 14, 26, 0.8); color: #fff; border-radius: 4px; margin-bottom: 6px;">
+          <button id="add-code-btn" style="width: 100%; padding: 6px 12px; font-size: 11px; background: linear-gradient(135deg, #2a4 0%, #1a3 100%); border: 1px solid #3b5; color: #fff; border-radius: 4px; cursor: pointer; font-weight: 600;">Ajouter</button>
+          <div id="add-code-status" style="margin-top: 6px; font-size: 10px; min-height: 14px; text-align: center;"></div>
         </div>
       </div>
     </div>
@@ -1332,7 +1330,7 @@
   <div id="toast-container"></div>
 
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/share.js"></script>
-  <script src="/app.js"></script>
+  <script src="/share.js?v=3"></script>
+  <script src="/app.js?v=3"></script>
 </body>
 </html>

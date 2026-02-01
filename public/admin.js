@@ -1198,7 +1198,7 @@ async function loadReferralsTable() {
       packsList.innerHTML = packs.map(pack => `
         <tr>
           <td><strong>${pack.label}</strong> (${pack.pack_key})</td>
-          <td>${pack.price.toFixed(2)}€</td>
+          <td>${parseFloat(pack.price).toFixed(2)}€</td>
           <td>${pack.base_tickets}</td>
           <td>${pack.bonus_tickets}</td>
           <td><strong>${pack.total_tickets}</strong></td>
@@ -1208,6 +1208,9 @@ async function loadReferralsTable() {
             </span>
           </td>
           <td>
+            <button class="btn-sm" onclick="editPack('${pack.pack_key}', '${pack.label}', ${pack.price}, ${pack.base_tickets}, ${pack.bonus_tickets})" style="margin-right: 4px;">
+              ✏️ Modifier
+            </button>
             <button class="btn-sm" onclick="togglePackActive('${pack.pack_key}', ${!pack.is_active})">
               ${pack.is_active ? '🚫 Désactiver' : '✓ Activer'}
             </button>
@@ -1243,6 +1246,59 @@ async function loadReferralsTable() {
       `).join('');
     } catch (err) {
       console.error('Failed to load pack sales:', err);
+    }
+  };
+
+  window.editPack = async function(packKey, currentLabel, currentPrice, currentBase, currentBonus) {
+    try {
+      // Demander les nouvelles valeurs
+      const newLabel = prompt('Nom du pack:', currentLabel);
+      if (newLabel === null) return; // Annulé
+
+      const newPrice = prompt('Prix (€):', currentPrice);
+      if (newPrice === null) return;
+
+      const newBase = prompt('Tickets payés:', currentBase);
+      if (newBase === null) return;
+
+      const newBonus = prompt('Tickets bonus:', currentBonus);
+      if (newBonus === null) return;
+
+      // Validation
+      const price = parseFloat(newPrice);
+      const base = parseInt(newBase);
+      const bonus = parseInt(newBonus);
+
+      if (isNaN(price) || price < 0) {
+        alert('Prix invalide');
+        return;
+      }
+      if (isNaN(base) || base < 1) {
+        alert('Nombre de tickets payés invalide');
+        return;
+      }
+      if (isNaN(bonus) || bonus < 0) {
+        alert('Nombre de tickets bonus invalide');
+        return;
+      }
+
+      // Mise à jour
+      await apiCall(`/api/admin/pack/${packKey}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          label: newLabel.trim(),
+          price: price,
+          base_tickets: base,
+          bonus_tickets: bonus
+        })
+      });
+
+      alert('Pack modifié avec succès!');
+      loadPackStats();
+      loadPacksTable();
+      loadPackSalesTable();
+    } catch (err) {
+      alert('Erreur lors de la modification du pack: ' + err.message);
     }
   };
 

@@ -1,25 +1,27 @@
-# Dependencies
-node_modules/
-
-# Environment variables
+# Environment
 .env
-.env.local
-.env.production
+server/.env
 
 # Logs
 *.log
 npm-debug.log*
 
+# Dependency directories
+node_modules/
+
 # OS
 .DS_Store
 Thumbs.db
 
-# Editor
+# IDE
 .vscode/
 .idea/
-*.swp
-*.swo
 
-# Build
-dist/
-build/
+# Test files
+test-*.sh
+quick-test.sh
+OPEN_THIS.html
+/tmp/
+
+# Local development
+server/.env.example

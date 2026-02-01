@@ -722,6 +722,147 @@
     .concept-section .example ul {
       margin-top: 8px;
     }
+
+    /* ===== MODAL ===== */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: linear-gradient(135deg, #1a1f2e 0%, #0a0e1a 100%);
+      border: 1px solid #2a3f5f;
+      border-radius: 12px;
+      padding: 30px;
+      max-width: 500px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 25px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid #2a3f5f;
+    }
+
+    .modal-header h2 {
+      font-size: 20px;
+      color: #6FE6FF;
+      margin: 0;
+    }
+
+    .modal-close {
+      background: transparent;
+      border: none;
+      color: #888;
+      font-size: 24px;
+      cursor: pointer;
+      padding: 0;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+
+    .modal-close:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+
+    .modal-form {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-group label {
+      font-size: 13px;
+      color: #888;
+      font-weight: 500;
+    }
+
+    .form-group input {
+      padding: 10px 12px;
+      background: rgba(10, 14, 26, 0.8);
+      border: 1px solid #2a3f5f;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #6FE6FF;
+      background: rgba(10, 14, 26, 0.95);
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 25px;
+      padding-top: 20px;
+      border-top: 1px solid #2a3f5f;
+    }
+
+    .modal-actions button {
+      flex: 1;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .modal-actions .btn-cancel {
+      background: rgba(42, 63, 95, 0.5);
+      color: #fff;
+      border: 1px solid #2a3f5f;
+    }
+
+    .modal-actions .btn-cancel:hover {
+      background: rgba(42, 63, 95, 0.8);
+    }
+
+    .modal-actions .btn-save {
+      background: linear-gradient(135deg, #2a4 0%, #1a3 100%);
+      color: #fff;
+      border: 1px solid #3b5;
+    }
+
+    .modal-actions .btn-save:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(34, 170, 68, 0.3);
+    }
   </style>
 </head>
 <body>
@@ -1253,6 +1394,46 @@
     </div>
   </div>
 
-  <script src="/admin.js?v=4"></script>
+  <!-- MODAL: Edit Pack -->
+  <div id="edit-pack-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>✏️ Modifier le pack</h2>
+        <button class="modal-close" onclick="closeEditPackModal()">×</button>
+      </div>
+      <form class="modal-form" onsubmit="savePackEdit(event)">
+        <div class="form-group">
+          <label for="edit-pack-label">Nom du pack</label>
+          <input type="text" id="edit-pack-label" required>
+        </div>
+        <div class="form-group">
+          <label for="edit-pack-price">Prix (€)</label>
+          <input type="number" id="edit-pack-price" step="0.01" min="0" required>
+        </div>
+        <div class="form-group">
+          <label for="edit-pack-base">Tickets payés</label>
+          <input type="number" id="edit-pack-base" min="1" required>
+        </div>
+        <div class="form-group">
+          <label for="edit-pack-bonus">Tickets bonus</label>
+          <input type="number" id="edit-pack-bonus" min="0" required>
+        </div>
+        <div class="form-group">
+          <label for="edit-pack-discount">Réduction (%)</label>
+          <input type="number" id="edit-pack-discount" step="0.01" min="0" max="100" required>
+        </div>
+        <div class="form-group">
+          <label for="edit-pack-order">Ordre d'affichage (1-10)</label>
+          <input type="number" id="edit-pack-order" min="1" max="10" required>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-cancel" onclick="closeEditPackModal()">Annuler</button>
+          <button type="submit" class="btn-save">Enregistrer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/admin.js?v=5"></script>
 </body>
 </html>

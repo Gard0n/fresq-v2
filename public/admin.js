@@ -1249,34 +1249,47 @@ async function loadReferralsTable() {
     }
   };
 
-  window.editPack = async function(packKey, currentLabel, currentPrice, currentBase, currentBonus, currentDiscount, currentOrder) {
+  // Store current pack being edited
+  let currentEditingPackKey = null;
+
+  window.editPack = function(packKey, currentLabel, currentPrice, currentBase, currentBonus, currentDiscount, currentOrder) {
+    // Store pack key for save
+    currentEditingPackKey = packKey;
+
+    // Fill form with current values
+    document.getElementById('edit-pack-label').value = currentLabel;
+    document.getElementById('edit-pack-price').value = currentPrice;
+    document.getElementById('edit-pack-base').value = currentBase;
+    document.getElementById('edit-pack-bonus').value = currentBonus;
+    document.getElementById('edit-pack-discount').value = currentDiscount || 0;
+    document.getElementById('edit-pack-order').value = currentOrder || 1;
+
+    // Show modal
+    document.getElementById('edit-pack-modal').classList.add('active');
+  };
+
+  window.closeEditPackModal = function() {
+    document.getElementById('edit-pack-modal').classList.remove('active');
+    currentEditingPackKey = null;
+  };
+
+  window.savePackEdit = async function(event) {
+    event.preventDefault();
+
     try {
-      // Demander les nouvelles valeurs
-      const newLabel = prompt('Nom du pack:', currentLabel);
-      if (newLabel === null) return; // Annulé
-
-      const newPrice = prompt('Prix (€):', currentPrice);
-      if (newPrice === null) return;
-
-      const newBase = prompt('Tickets payés:', currentBase);
-      if (newBase === null) return;
-
-      const newBonus = prompt('Tickets bonus:', currentBonus);
-      if (newBonus === null) return;
-
-      const newDiscount = prompt('Réduction (%):', currentDiscount || 0);
-      if (newDiscount === null) return;
-
-      const newOrder = prompt('Ordre d\'affichage (1-10):', currentOrder || 1);
-      if (newOrder === null) return;
+      // Get form values
+      const label = document.getElementById('edit-pack-label').value.trim();
+      const price = parseFloat(document.getElementById('edit-pack-price').value);
+      const base = parseInt(document.getElementById('edit-pack-base').value);
+      const bonus = parseInt(document.getElementById('edit-pack-bonus').value);
+      const discount = parseFloat(document.getElementById('edit-pack-discount').value);
+      const order = parseInt(document.getElementById('edit-pack-order').value);
 
       // Validation
-      const price = parseFloat(newPrice);
-      const base = parseInt(newBase);
-      const bonus = parseInt(newBonus);
-      const discount = parseFloat(newDiscount);
-      const order = parseInt(newOrder);
-
+      if (!label) {
+        alert('Le nom du pack est requis');
+        return;
+      }
       if (isNaN(price) || price < 0) {
         alert('Prix invalide');
         return;
@@ -1298,11 +1311,11 @@ async function loadReferralsTable() {
         return;
       }
 
-      // Mise à jour
-      await apiCall(`/api/admin/pack/${packKey}`, {
+      // Update pack
+      await apiCall(`/api/admin/pack/${currentEditingPackKey}`, {
         method: 'PUT',
         body: JSON.stringify({
-          label: newLabel.trim(),
+          label: label,
           price: price,
           base_tickets: base,
           bonus_tickets: bonus,
@@ -1311,6 +1324,10 @@ async function loadReferralsTable() {
         })
       });
 
+      // Close modal
+      closeEditPackModal();
+
+      // Reload data
       alert('Pack modifié avec succès!');
       loadPackStats();
       loadPacksTable();

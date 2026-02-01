@@ -823,10 +823,10 @@
       }
 
       /* Color palette larger touch targets */
-      #step3-palette .color-btn {
-        min-width: 48px !important;
-        min-height: 48px !important;
-        margin: 4px !important;
+      #step3-palette .color {
+        width: 52px !important;
+        height: 52px !important;
+        margin: 6px !important;
       }
 
       /* Step 2 controls better spacing */
@@ -876,6 +876,33 @@
       }
     }
 
+    /* Code columns layout */
+    .code-columns-layout {
+      display: flex;
+      gap: 12px;
+      width: 100%;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+
+    .code-column-left {
+      flex: 1;
+      background: rgba(26, 31, 46, 0.9);
+      border-radius: 6px;
+      padding: 10px 12px;
+    }
+
+    .code-column-right {
+      width: 180px;
+      background: rgba(26, 31, 46, 0.9);
+      border-radius: 6px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
     /* Extra small screens (phones in portrait) */
     @media (max-width: 480px) {
       #step1-screen h1 {
@@ -886,8 +913,22 @@
         font-size: 14px !important;
       }
 
-      #step2-controls .controls-group {
-        flex-direction: column !important;
+      /* Stack code columns vertically on mobile */
+      .code-columns-layout {
+        flex-direction: column;
+        padding: 0 12px;
+        gap: 12px;
+      }
+
+      .code-column-right {
+        width: 100%;
+      }
+
+      /* Color palette even larger on small screens */
+      #step3-palette .color {
+        width: 56px !important;
+        height: 56px !important;
+        margin: 8px !important;
       }
 
       /* Minimap smaller on mobile */
@@ -1182,16 +1223,16 @@
 
     <!-- STEP 2 Controls: Code Management (2 Columns Layout) -->
     <div id="step2-controls" class="hidden">
-      <div style="display: flex; gap: 12px; width: 100%; max-width: 800px; margin: 0 auto; padding: 0 20px;">
+      <div class="code-columns-layout">
 
         <!-- Colonne 1: Mes codes -->
-        <div style="flex: 1; background: rgba(26, 31, 46, 0.9); border-radius: 6px; padding: 10px 12px;">
+        <div class="code-column-left">
           <h3 style="font-size: 11px; color: #6FE6FF; margin: 0 0 8px 0; font-weight: 600;">📌 Mes codes</h3>
           <div id="my-codes-list" style="display: flex; flex-direction: column; gap: 4px; max-height: 120px; overflow-y: auto;"></div>
         </div>
 
         <!-- Colonne 2: Ajouter un code -->
-        <div style="width: 180px; background: rgba(26, 31, 46, 0.9); border-radius: 6px; padding: 10px 12px; display: flex; flex-direction: column; justify-content: center;">
+        <div class="code-column-right">
           <h3 style="font-size: 11px; color: #6FE6FF; margin: 0 0 8px 0; font-weight: 600;">➕ Ajouter</h3>
           <input type="text" id="new-code-input" placeholder="Code" style="width: 100%; padding: 6px 8px; font-size: 11px; border: 1px solid #2a3f5f; background: rgba(10, 14, 26, 0.8); color: #fff; border-radius: 4px; margin-bottom: 6px;">
           <button id="add-code-btn" style="width: 100%; padding: 6px 12px; font-size: 11px; background: linear-gradient(135deg, #2a4 0%, #1a3 100%); border: 1px solid #3b5; color: #fff; border-radius: 4px; cursor: pointer; font-weight: 600;">Ajouter</button>
@@ -1331,6 +1372,6 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="/share.js?v=3"></script>
-  <script src="/app.js?v=3"></script>
+  <script src="/app.js?v=4"></script>
 </body>
 </html>

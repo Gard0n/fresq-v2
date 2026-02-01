@@ -851,26 +851,46 @@
       /* Step 2/3 controls: proper sizing and visibility on mobile */
       #step2-controls, #step3-controls {
         padding: 12px !important;
-        min-height: 80px !important;
+        min-height: 120px !important;
+        max-height: none !important;
+        overflow-y: auto !important;
       }
 
       .code-column-left h3, .code-column-right h3 {
+        font-size: 12px !important;
+        margin: 0 0 10px 0 !important;
+      }
+
+      .code-column-left p, .code-column-right p {
         font-size: 11px !important;
       }
 
       #buy-ticket-btn {
-        font-size: 12px !important;
-        padding: 8px 16px !important;
+        font-size: 13px !important;
+        padding: 10px 18px !important;
+        width: 100% !important;
       }
 
-      /* Ensure palette colors are clickable */
+      /* Ensure palette colors are clickable and visible */
       #step3-palette {
         padding: 10px 0 !important;
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+        justify-content: center !important;
       }
 
       #step3-palette .color {
+        width: 50px !important;
+        height: 50px !important;
         cursor: pointer !important;
         pointer-events: auto !important;
+        border: 3px solid transparent !important;
+      }
+
+      #step3-palette .color.active {
+        border-color: #6FE6FF !important;
+        box-shadow: 0 0 20px rgba(111, 230, 255, 0.6) !important;
       }
 
       /* Move lottery widget to top-right on mobile */
@@ -888,11 +908,18 @@
       /* Stack code columns on tablets/mobile */
       .code-columns-layout {
         flex-direction: column !important;
-        padding: 0 12px !important;
+        padding: 0 !important;
+        gap: 16px !important;
+      }
+
+      .code-column-left {
+        width: 100% !important;
+        margin: 0 !important;
       }
 
       .code-column-right {
         width: 100% !important;
+        margin: 0 !important;
       }
 
       /* Tools overlay full screen on mobile */
@@ -972,20 +999,20 @@
 
       /* Stack code columns vertically on mobile */
       .code-columns-layout {
-        flex-direction: column;
-        padding: 0 12px;
-        gap: 12px;
+        flex-direction: column !important;
+        padding: 0 !important;
+        gap: 16px !important;
       }
 
-      .code-column-right {
-        width: 100%;
+      .code-column-left, .code-column-right {
+        width: 100% !important;
+        margin: 0 !important;
       }
 
-      /* Color palette compact on small screens */
+      /* Color palette responsive on small screens */
       #step3-palette .color {
-        width: 42px !important;
-        height: 42px !important;
-        margin: 3px !important;
+        width: 48px !important;
+        height: 48px !important;
       }
 
       /* Minimap smaller on mobile */
@@ -1430,6 +1457,6 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="/share.js?v=3"></script>
-  <script src="/app.js?v=14"></script>
+  <script src="/app.js?v=15"></script>
 </body>
 </html>

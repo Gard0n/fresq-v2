@@ -360,12 +360,16 @@ async function init() {
   try {
     const res = await fetch('/api/config');
     const config = await res.json();
+    console.log('✅ Config loaded:', config);
     gridW = config.grid_w;
     gridH = config.grid_h;
     palette = config.palette;
+    console.log('✅ Palette loaded:', palette.length, 'colors');
 
     await loadState();
+    console.log('✅ State loaded:', cells.size, 'cells');
     setupPalette();
+    console.log('✅ Palette UI setup complete');
     setupMinimap();
     connectWebSocket();
     loadLotteryWidget(); // Load lottery widget data
@@ -760,13 +764,22 @@ function startPaintingWithCode(code) {
 
 // ===== STEP 3: CELL SELECTION + COLOR =====
 function setupPalette() {
+  console.log('🎨 Setting up palette with', palette.length, 'colors');
   step3Palette.innerHTML = '';
+
+  if (palette.length === 0) {
+    console.error('❌ Palette is empty!');
+    step3Palette.innerHTML = '<div style="color: #ff6b6b; padding: 10px;">Erreur: Palette vide</div>';
+    return;
+  }
+
   palette.forEach((color, i) => {
     const div = document.createElement('div');
     div.className = 'color';
     div.style.background = color;
     if (i === 0) div.classList.add('active');
     div.onclick = () => {
+      console.log('🎨 Color selected:', i + 1, color);
       document.querySelectorAll('#step3-palette .color').forEach(d => d.classList.remove('active'));
       div.classList.add('active');
       activeColor = i + 1;
@@ -774,6 +787,7 @@ function setupPalette() {
     };
     step3Palette.appendChild(div);
   });
+  console.log('✅ Palette UI created:', step3Palette.children.length, 'color divs');
 }
 
 function updateConfirmButton() {

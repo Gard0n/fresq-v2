@@ -1718,9 +1718,7 @@ init();
 // ===== TICKET PURCHASE =====
 function openTicketPurchase() {
   // TODO: Integrate with Stripe payment
-  alert('Paiement Stripe à venir ! 🎟️
-
-Cette fonctionnalité ouvrira bientôt une page de paiement sécurisée.');
+  alert('Paiement Stripe à venir ! 🎟️\n\nCette fonctionnalité ouvrira bientôt une page de paiement sécurisée.');
   console.log('Ticket purchase clicked - Stripe integration pending');
 }
 

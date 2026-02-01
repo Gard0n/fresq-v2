@@ -310,12 +310,10 @@ const step1Status = document.getElementById('step1-status');
 
 // ===== STEP 2 ELEMENTS (Code Management) =====
 const step2Controls = document.getElementById('step2-controls');
-const myCodesSection = document.getElementById('my-codes-section');
 const myCodesList = document.getElementById('my-codes-list');
-const noCodesMsg = document.getElementById('no-codes-msg');
-const newCodeInput = document.getElementById('new-code-input');
-const addCodeBtn = document.getElementById('add-code-btn');
-const addCodeStatus = document.getElementById('add-code-status');
+
+// NOTE: Code input elements removed for Stripe ticket purchase flow
+// Users buy tickets via Stripe, manual code entry removed
 
 // ===== STEP 3 ELEMENTS (Cell Selection + Color) =====
 const step3Controls = document.getElementById('step3-controls');
@@ -673,75 +671,8 @@ emailInputStep1.addEventListener('keypress', (e) => {
 });
 
 // ===== STEP 2: CODE MANAGEMENT =====
-function showAddCodeStatus(msg, type = 'info') {
-  addCodeStatus.textContent = msg;
-  addCodeStatus.style.color = type === 'error' ? '#ff6b6b' : type === 'success' ? '#6FE6FF' : '#888';
-}
-
-// Add new code button
-addCodeBtn.onclick = async () => {
-  const code = newCodeInput.value.trim().toUpperCase();
-  if (!code) return;
-
-  if (!currentUser) {
-    showAddCodeStatus('Erreur: utilisateur non connecté', 'error');
-    return;
-  }
-
-  try {
-    showAddCodeStatus('Validation...', 'info');
-
-    const res = await fetch('/api/user/claim-code', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: currentUser.id, code })
-    });
-    const data = await res.json();
-
-    if (!data.ok) {
-      if (data.error === 'invalid_code') {
-        showAddCodeStatus('Code invalide', 'error');
-      } else if (data.error === 'code_already_owned') {
-        showAddCodeStatus('Code déjà utilisé par un autre utilisateur', 'error');
-      } else if (data.error === 'too_many_requests') {
-        showAddCodeStatus('Trop de requêtes, attendez un instant', 'error');
-      } else {
-        showAddCodeStatus('Erreur', 'error');
-      }
-      return;
-    }
-
-    // Add code to user's codes list
-    userCodes.push({
-      code: data.code,
-      x: data.assigned?.x || null,
-      y: data.assigned?.y || null,
-      color: data.assigned?.color || null
-    });
-
-    updateMyCodesList();
-    newCodeInput.value = '';
-
-    // If code is already assigned, show info
-    if (data.assigned) {
-      showAddCodeStatus(`Code ajouté ! Case (${data.assigned.x}, ${data.assigned.y}) - Clique sur le code pour repeindre`, 'success');
-    } else {
-      // Auto-start painting mode for new code
-      showAddCodeStatus('Code ajouté ! Choisis maintenant ta case...', 'success');
-      setTimeout(() => {
-        startPaintingWithCode(data.code);
-      }, 500);
-    }
-  } catch (err) {
-    showAddCodeStatus('Erreur', 'error');
-    console.error(err);
-  }
-};
-
-// Enter key to add code
-newCodeInput.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') addCodeBtn.click();
-});
+// NOTE: Manual code entry removed - users buy tickets via Stripe
+// Code management functions kept for existing codes display
 
 // Function to start painting with a specific code
 function startPaintingWithCode(code) {

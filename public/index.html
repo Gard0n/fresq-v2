@@ -815,24 +815,44 @@
         padding: 12px !important;
       }
 
-      /* Tools menu button larger on mobile */
+      /* Tools menu button SMALLER on mobile to save space */
       #tools-menu-btn {
-        width: 56px !important;
-        height: 56px !important;
-        font-size: 24px !important;
+        width: 40px !important;
+        height: 40px !important;
+        font-size: 18px !important;
+        top: 10px !important;
+        left: 10px !important;
       }
 
-      /* Color palette larger touch targets */
+      /* Theme toggle button also smaller on mobile */
+      #theme-toggle-btn {
+        width: 40px !important;
+        height: 40px !important;
+        font-size: 20px !important;
+        top: 10px !important;
+        right: 10px !important;
+      }
+
+      /* Color palette compact on mobile */
       #step3-palette .color {
-        width: 52px !important;
-        height: 52px !important;
-        margin: 6px !important;
+        width: 40px !important;
+        height: 40px !important;
+        margin: 3px !important;
       }
 
-      /* Step 2 controls better spacing */
+      #step3-palette {
+        gap: 4px !important;
+      }
+
+      /* Step 2 controls: reduce padding and code list height */
       #step2-controls {
-        padding: 20px !important;
-        gap: 16px !important;
+        padding: 10px !important;
+        gap: 10px !important;
+      }
+
+      /* Reduce codes list max-height on mobile */
+      #my-codes-list {
+        max-height: 80px !important;
       }
 
       /* My codes list items larger */
@@ -856,11 +876,14 @@
         transform: translateX(0) !important;
       }
 
-      /* Stats display responsive */
+      /* HIDE stats display on mobile (replaced by lottery widget) */
       #stats-display {
-        left: 70px !important;
-        font-size: 12px !important;
-        padding: 6px 12px !important;
+        display: none !important;
+      }
+
+      /* HIDE zoom info on mobile */
+      #zoom-info {
+        display: none !important;
       }
 
       /* Confirm paint button larger */
@@ -924,11 +947,11 @@
         width: 100%;
       }
 
-      /* Color palette even larger on small screens */
+      /* Color palette compact on small screens */
       #step3-palette .color {
-        width: 56px !important;
-        height: 56px !important;
-        margin: 8px !important;
+        width: 42px !important;
+        height: 42px !important;
+        margin: 3px !important;
       }
 
       /* Minimap smaller on mobile */
@@ -1372,6 +1395,6 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="/share.js?v=3"></script>
-  <script src="/app.js?v=4"></script>
+  <script src="/app.js?v=5"></script>
 </body>
 </html>

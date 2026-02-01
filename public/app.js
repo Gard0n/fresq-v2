@@ -828,13 +828,13 @@ confirmPaintBtn.onclick = async () => {
     hapticFeedback('success');
     showStep3Info('Case peinte !', 'success');
 
-    // Go back to step 2 after very short delay
+    // Go back to step 2 immediately
     setTimeout(() => {
       currentCode = null;
       myCell = null;
       activeColor = 1;
       showStep(2);
-    }, 100);
+    }, 10);
   } catch (err) {
     showStep3Info('Erreur de peinture', 'error');
     console.error(err);

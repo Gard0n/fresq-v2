@@ -1202,6 +1202,11 @@ function draw() {
   }
 }
 
+// Mark canvas as dirty (needs redraw)
+function markDirty() {
+  isDirty = true;
+}
+
 function screenToGrid(screenX, screenY) {
   const worldX = (screenX - offsetX) / scale;
   const worldY = (screenY - offsetY) / scale;

@@ -45,6 +45,12 @@ let newCells = new Map();
 let particles = []; // For particle effects
 let ripples = []; // For ripple effects
 
+// Performance optimization
+let isDirty = true; // Canvas needs redraw
+let isAnimating = false; // Animation frame in progress
+let lastDrawTime = 0;
+const DRAW_THROTTLE = 16; // ~60fps max
+
 // WebSockets
 let socket = null;
 let isConnected = false;
@@ -358,16 +364,12 @@ async function init() {
   try {
     const res = await fetch('/api/config');
     const config = await res.json();
-    console.log('✅ Config loaded:', config);
     gridW = config.grid_w;
     gridH = config.grid_h;
     palette = config.palette;
-    console.log('✅ Palette loaded:', palette.length, 'colors');
 
     await loadState();
-    console.log('✅ State loaded:', cells.size, 'cells');
     setupPalette();
-    console.log('✅ Palette UI setup complete');
     setupMinimap();
     connectWebSocket();
     loadLotteryWidget(); // Load lottery widget data
@@ -695,11 +697,9 @@ function startPaintingWithCode(code) {
 
 // ===== STEP 3: CELL SELECTION + COLOR =====
 function setupPalette() {
-  console.log('🎨 Setting up palette with', palette.length, 'colors');
   step3Palette.innerHTML = '';
 
   if (palette.length === 0) {
-    console.error('❌ Palette is empty!');
     step3Palette.innerHTML = '<div style="color: #ff6b6b; padding: 10px;">Erreur: Palette vide</div>';
     return;
   }
@@ -710,7 +710,6 @@ function setupPalette() {
     div.style.background = color;
     if (i === 0) div.classList.add('active');
     div.onclick = () => {
-      console.log('🎨 Color selected:', i + 1, color);
       document.querySelectorAll('#step3-palette .color').forEach(d => d.classList.remove('active'));
       div.classList.add('active');
       activeColor = i + 1;
@@ -718,7 +717,6 @@ function setupPalette() {
     };
     step3Palette.appendChild(div);
   });
-  console.log('✅ Palette UI created:', step3Palette.children.length, 'color divs');
 }
 
 function updateConfirmButton() {
@@ -894,6 +892,7 @@ function setupZoomPan() {
       const touch = e.touches[0];
       offsetX = touch.clientX - panStart.x;
       offsetY = touch.clientY - panStart.y;
+      markDirty();
       draw();
       e.preventDefault();
     } else if (e.touches.length === 2) {
@@ -945,6 +944,7 @@ function setupZoomPan() {
     scale = newScale;
 
     updateZoomIndicator();
+    markDirty();
     draw();
   });
 
@@ -962,6 +962,7 @@ function setupZoomPan() {
     if (isPanning) {
       offsetX = e.clientX - panStart.x;
       offsetY = e.clientY - panStart.y;
+      markDirty();
       draw();
     }
 
@@ -1038,6 +1039,16 @@ async function loadState() {
 
 function draw() {
   if (!ctx) return;
+
+  // Performance: Skip if not dirty and no animation
+  const now = Date.now();
+  const hasAnimations = newCells.size > 0 || particles.length > 0 || ripples.length > 0;
+
+  if (!isDirty && !hasAnimations) return;
+  if (now - lastDrawTime < DRAW_THROTTLE && !hasAnimations) return;
+
+  lastDrawTime = now;
+  isDirty = false;
 
   // Get theme-aware colors from CSS variables
   const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim();
@@ -1185,7 +1196,10 @@ function draw() {
 
   ctx.restore();
 
-  drawMinimap();
+  // Only update minimap if tools overlay is visible
+  if (toolsOverlay && toolsOverlay.classList.contains('visible')) {
+    drawMinimap();
+  }
 }
 
 function screenToGrid(screenX, screenY) {
@@ -1459,6 +1473,7 @@ function connectWebSocket() {
     cells.set(key, data.color);
     cellTimestamps.set(key, now);
     newCells.set(key, now);
+    markDirty();
 
     // Create visual effects (ripples, particles, glow)
     createCellEffects(data.x, data.y, data.color);

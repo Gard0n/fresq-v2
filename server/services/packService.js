@@ -302,7 +302,7 @@ export async function getPackStats(client) {
  */
 export async function updatePackConfig(client, packKey, updates) {
   try {
-    const allowedFields = ['label', 'base_tickets', 'bonus_tickets', 'total_tickets', 'price', 'is_active', 'display_order'];
+    const allowedFields = ['label', 'base_tickets', 'bonus_tickets', 'total_tickets', 'price', 'is_active', 'display_order', 'discount_percent'];
     const updateFields = [];
     const values = [];
     let paramIndex = 1;

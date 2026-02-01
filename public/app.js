@@ -1093,8 +1093,7 @@ function draw() {
     }
   }
 
-  // Painted cells
-  const now = Date.now();
+  // Painted cells (now already declared at top of function)
   cells.forEach((color, key) => {
     const [x, y] = key.split(',').map(Number);
     ctx.fillStyle = palette[color - 1];

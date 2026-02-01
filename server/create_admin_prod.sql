@@ -28,8 +28,8 @@ CREATE TABLE IF NOT EXISTS admin_sessions (
 
 INSERT INTO admins (email, password_hash)
 VALUES (
-  'ton-email@example.com',  -- ⚠️ CHANGE CECI
-  '$2b$10$XOPbrlUPQdthB9K7R5Kl6.L3rNHhCXULDYU1J9.YLe3P9KY9cWqmS'  -- ⚠️ CHANGE CECI (hash de "admin123")
+  'mathieu.jardin.pro@gmail.com',  -- ⚠️ CHANGE CECI
+  '$2a$15$KMxYfxRkxNSu3Y23WbS2tO2shiiTcGuMgjU94cKeXKQQuudFbCoRa'  -- ⚠️ CHANGE CECI (hash de "admin123")
 )
 ON CONFLICT (email) DO NOTHING;
 

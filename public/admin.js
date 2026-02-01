@@ -1208,7 +1208,7 @@ async function loadReferralsTable() {
             </span>
           </td>
           <td>
-            <button class="btn-sm" onclick="editPack('${pack.pack_key}', '${pack.label}', ${pack.price}, ${pack.base_tickets}, ${pack.bonus_tickets})" style="margin-right: 4px;">
+            <button class="btn-sm" onclick="editPack('${pack.pack_key}', '${pack.label}', ${pack.price}, ${pack.base_tickets}, ${pack.bonus_tickets}, ${pack.discount_percent}, ${pack.display_order})" style="margin-right: 4px;">
               ✏️ Modifier
             </button>
             <button class="btn-sm" onclick="togglePackActive('${pack.pack_key}', ${!pack.is_active})">
@@ -1249,7 +1249,7 @@ async function loadReferralsTable() {
     }
   };
 
-  window.editPack = async function(packKey, currentLabel, currentPrice, currentBase, currentBonus) {
+  window.editPack = async function(packKey, currentLabel, currentPrice, currentBase, currentBonus, currentDiscount, currentOrder) {
     try {
       // Demander les nouvelles valeurs
       const newLabel = prompt('Nom du pack:', currentLabel);
@@ -1264,10 +1264,18 @@ async function loadReferralsTable() {
       const newBonus = prompt('Tickets bonus:', currentBonus);
       if (newBonus === null) return;
 
+      const newDiscount = prompt('Réduction (%):', currentDiscount || 0);
+      if (newDiscount === null) return;
+
+      const newOrder = prompt('Ordre d\'affichage (1-10):', currentOrder || 1);
+      if (newOrder === null) return;
+
       // Validation
       const price = parseFloat(newPrice);
       const base = parseInt(newBase);
       const bonus = parseInt(newBonus);
+      const discount = parseFloat(newDiscount);
+      const order = parseInt(newOrder);
 
       if (isNaN(price) || price < 0) {
         alert('Prix invalide');
@@ -1281,6 +1289,14 @@ async function loadReferralsTable() {
         alert('Nombre de tickets bonus invalide');
         return;
       }
+      if (isNaN(discount) || discount < 0 || discount > 100) {
+        alert('Réduction invalide (0-100%)');
+        return;
+      }
+      if (isNaN(order) || order < 1) {
+        alert('Ordre d\'affichage invalide');
+        return;
+      }
 
       // Mise à jour
       await apiCall(`/api/admin/pack/${packKey}`, {
@@ -1289,7 +1305,9 @@ async function loadReferralsTable() {
           label: newLabel.trim(),
           price: price,
           base_tickets: base,
-          bonus_tickets: bonus
+          bonus_tickets: bonus,
+          discount_percent: discount,
+          display_order: order
         })
       });
 

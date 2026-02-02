@@ -15,8 +15,10 @@ import * as lotteryService from "./services/lotteryService.js";
 import * as referralService from "./services/referralService.js";
 import * as packService from "./services/packService.js";
 
-// Stripe setup
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+// Stripe setup (graceful if key missing - endpoints will return error instead of crashing)
+const stripe = process.env.STRIPE_SECRET_KEY
+  ? new Stripe(process.env.STRIPE_SECRET_KEY)
+  : null;
 
 const app = express();
 const httpServer = createServer(app);
@@ -1969,6 +1971,10 @@ app.get("/api/admin/referrals", requireAdmin, async (req, res) => {
 
 // Create Stripe Checkout session
 app.post("/api/create-checkout-session", rateLimit(5, 60000), async (req, res) => {
+  if (!stripe) {
+    return res.status(503).json({ error: 'stripe_not_configured', message: 'Stripe is not configured on this server' });
+  }
+
   const { email, packKey } = req.body;
 
   if (!email || !packKey) {

@@ -6,6 +6,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { createServer } from "http";
 import { Server } from "socket.io";
+import Stripe from "stripe";
 
 // Commercial services
 import * as tierService from "./services/tierService.js";
@@ -13,6 +14,9 @@ import * as ticketService from "./services/ticketService.js";
 import * as lotteryService from "./services/lotteryService.js";
 import * as referralService from "./services/referralService.js";
 import * as packService from "./services/packService.js";
+
+// Stripe setup
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
 const httpServer = createServer(app);
@@ -41,6 +45,69 @@ const io = new Server(httpServer, {
 });
 
 const PORT = Number(process.env.PORT || 3001);
+
+// Stripe webhook needs raw body - must be before express.json()
+app.post("/api/stripe/webhook", express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+
+  let event;
+  try {
+    if (process.env.STRIPE_WEBHOOK_SECRET) {
+      event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    } else {
+      // Dev mode without webhook secret - parse body directly
+      event = JSON.parse(req.body.toString());
+    }
+  } catch (err) {
+    log('error', 'Stripe webhook signature verification failed', { error: err.message });
+    return res.status(400).json({ error: 'webhook_signature_invalid' });
+  }
+
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object;
+    const orderId = session.metadata?.order_id;
+
+    if (!orderId) {
+      log('error', 'Stripe webhook: missing order_id in metadata');
+      return res.status(400).json({ error: 'missing_order_id' });
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Update payment_session_id on the ticket
+      await client.query(
+        'UPDATE tickets SET payment_session_id = $1 WHERE order_id = $2',
+        [session.id, orderId]
+      );
+
+      const result = await packService.confirmPackPurchase(client, orderId);
+
+      await client.query('COMMIT');
+
+      trackEvent('stripe', 'payment_confirmed', orderId, result.totalCodes);
+      log('info', 'Stripe payment confirmed', { orderId, codesGenerated: result.totalCodes });
+
+      // Broadcast tier upgrade if occurred
+      if (result.tierUpgrade && result.tierUpgrade.upgraded) {
+        io.emit('tier_upgrade', {
+          oldTier: result.tierUpgrade.oldTier,
+          newTier: result.tierUpgrade.newTier,
+          expansion: result.tierUpgrade.expansion
+        });
+        clearCache('config');
+      }
+    } catch (err) {
+      await client.query('ROLLBACK');
+      log('error', 'Stripe webhook processing error', { error: err.message, orderId });
+    } finally {
+      client.release();
+    }
+  }
+
+  res.json({ received: true });
+});
 
 app.use(express.json({ limit: "1mb" }));
 
@@ -1895,6 +1962,96 @@ app.get("/api/admin/referrals", requireAdmin, async (req, res) => {
     res.status(500).json({ error: 'get_referrals_error' });
   } finally {
     client.release();
+  }
+});
+
+// ===== STRIPE CHECKOUT =====
+
+// Create Stripe Checkout session
+app.post("/api/create-checkout-session", rateLimit(5, 60000), async (req, res) => {
+  const { email, packKey } = req.body;
+
+  if (!email || !packKey) {
+    return res.status(400).json({ error: 'email_and_pack_required' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Create the pack purchase (status: pending)
+    const result = await packService.createPackPurchase(client, {
+      email,
+      packKey,
+      paymentProvider: 'stripe'
+    });
+
+    await client.query('COMMIT');
+
+    const { ticket, pack } = result;
+
+    // Determine base URL for redirects
+    const baseUrl = req.headers.origin || `${req.protocol}://${req.get('host')}`;
+
+    // Create Stripe Checkout session
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      mode: 'payment',
+      customer_email: email,
+      line_items: [{
+        price_data: {
+          currency: 'eur',
+          product_data: {
+            name: `FRESQ - Pack ${pack.label}`,
+            description: `${pack.totalTickets} ticket${pack.totalTickets > 1 ? 's' : ''} (${pack.baseTickets} + ${pack.bonusTickets} bonus)`,
+          },
+          unit_amount: Math.round(pack.price * 100), // Stripe uses cents
+        },
+        quantity: 1,
+      }],
+      metadata: {
+        order_id: ticket.order_id,
+        pack_key: packKey,
+        email: email,
+      },
+      success_url: `${baseUrl}/?payment=success&order_id=${ticket.order_id}`,
+      cancel_url: `${baseUrl}/?payment=cancelled`,
+    });
+
+    // Store the Stripe session ID on the ticket
+    await pool.query(
+      'UPDATE tickets SET payment_session_id = $1 WHERE order_id = $2',
+      [session.id, ticket.order_id]
+    );
+
+    trackEvent('stripe', 'checkout_created', packKey, pack.price);
+    log('info', 'Stripe checkout created', { orderId: ticket.order_id, packKey, sessionId: session.id });
+
+    res.json({ ok: true, url: session.url, sessionId: session.id, orderId: ticket.order_id });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    log('error', 'Create checkout session error', { error: err.message });
+    res.status(500).json({ error: 'checkout_error', message: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Check Stripe session status (for polling after redirect)
+app.get("/api/stripe/session/:sessionId", async (req, res) => {
+  const { sessionId } = req.params;
+
+  try {
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+    res.json({
+      ok: true,
+      status: session.payment_status,
+      orderId: session.metadata?.order_id,
+    });
+  } catch (err) {
+    log('error', 'Get stripe session error', { error: err.message });
+    res.status(500).json({ error: 'session_error' });
   }
 });
 

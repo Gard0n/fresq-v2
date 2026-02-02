@@ -1679,10 +1679,147 @@ if (viewCellHistoryBtn) {
 init();
 
 
-// ===== TICKET PURCHASE =====
+// ===== TICKET PURCHASE (STRIPE) =====
+const packModalOverlay = document.getElementById('pack-modal-overlay');
+const packList = document.getElementById('pack-list');
+const packModalStatus = document.getElementById('pack-modal-status');
+const closePackModal = document.getElementById('close-pack-modal');
+
 function openTicketPurchase() {
-  // TODO: Integrate with Stripe payment
-  alert('Paiement Stripe à venir ! 🎟️\n\nCette fonctionnalité ouvrira bientôt une page de paiement sécurisée.');
-  console.log('Ticket purchase clicked - Stripe integration pending');
+  if (!currentUser) {
+    alert('Connecte-toi d\'abord !');
+    return;
+  }
+
+  packModalOverlay.style.display = 'flex';
+  packModalStatus.textContent = '';
+  loadPacks();
 }
+
+closePackModal.onclick = () => {
+  packModalOverlay.style.display = 'none';
+};
+
+packModalOverlay.onclick = (e) => {
+  if (e.target === packModalOverlay) {
+    packModalOverlay.style.display = 'none';
+  }
+};
+
+async function loadPacks() {
+  packList.innerHTML = '<div style="text-align:center; color:#888; padding:20px;">Chargement...</div>';
+
+  try {
+    const res = await fetch('/api/packs');
+    const data = await res.json();
+
+    if (!data.ok || !data.packs.length) {
+      packList.innerHTML = '<div style="text-align:center; color:#ff6b6b;">Aucun pack disponible</div>';
+      return;
+    }
+
+    packList.innerHTML = '';
+    data.packs.forEach(pack => {
+      const div = document.createElement('div');
+      div.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:12px; background:rgba(42,63,95,0.3); border:1px solid #2a3f5f; border-radius:8px; cursor:pointer; transition:all 0.2s;';
+
+      const bonusText = pack.bonus_tickets > 0 ? ` + ${pack.bonus_tickets} bonus` : '';
+      const discountText = pack.discount_percent > 0 ? `<span style="color:#6FE6FF; font-size:10px; margin-left:4px;">-${pack.discount_percent}%</span>` : '';
+
+      div.innerHTML = `
+        <div>
+          <div style="font-size:13px; font-weight:700; color:#fff;">${pack.label}${discountText}</div>
+          <div style="font-size:10px; color:#aaa; margin-top:2px;">${pack.base_tickets} ticket${pack.base_tickets > 1 ? 's' : ''}${bonusText}</div>
+        </div>
+        <div style="font-size:14px; font-weight:700; color:#6FE6FF;">${Number(pack.price).toFixed(2)}€</div>
+      `;
+
+      div.onmouseenter = () => { div.style.borderColor = '#6FE6FF'; div.style.background = 'rgba(42,63,95,0.5)'; };
+      div.onmouseleave = () => { div.style.borderColor = '#2a3f5f'; div.style.background = 'rgba(42,63,95,0.3)'; };
+
+      div.onclick = () => startStripeCheckout(pack.pack_key, pack.label);
+
+      packList.appendChild(div);
+    });
+  } catch (err) {
+    console.error('Load packs error:', err);
+    packList.innerHTML = '<div style="text-align:center; color:#ff6b6b;">Erreur de chargement</div>';
+  }
+}
+
+async function startStripeCheckout(packKey, packLabel) {
+  packModalStatus.textContent = `Redirection vers le paiement pour ${packLabel}...`;
+  packModalStatus.style.color = '#6FE6FF';
+
+  try {
+    const res = await fetch('/api/create-checkout-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: currentUser.email,
+        packKey
+      })
+    });
+    const data = await res.json();
+
+    if (!data.ok || !data.url) {
+      packModalStatus.textContent = data.message || 'Erreur lors de la creation du paiement';
+      packModalStatus.style.color = '#ff6b6b';
+      return;
+    }
+
+    // Redirect to Stripe Checkout
+    window.location.href = data.url;
+  } catch (err) {
+    console.error('Stripe checkout error:', err);
+    packModalStatus.textContent = 'Erreur de connexion';
+    packModalStatus.style.color = '#ff6b6b';
+  }
+}
+
+// Handle return from Stripe payment
+function handlePaymentReturn() {
+  const params = new URLSearchParams(window.location.search);
+  const payment = params.get('payment');
+  const orderId = params.get('order_id');
+
+  if (!payment) return;
+
+  // Clean URL
+  window.history.replaceState({}, '', '/');
+
+  if (payment === 'success' && orderId) {
+    // Show success and refresh user codes
+    setTimeout(async () => {
+      alert(`Paiement reussi ! Vos codes arrivent...`);
+
+      // Refresh user data to get new codes
+      if (currentUser) {
+        try {
+          const res = await fetch('/api/user/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: currentUser.email })
+          });
+          const data = await res.json();
+          if (data.ok) {
+            userCodes = data.codes;
+            if (currentStep === 2) {
+              updateMyCodesList();
+            }
+          }
+        } catch (err) {
+          console.error('Refresh codes error:', err);
+        }
+      }
+    }, 500);
+  } else if (payment === 'cancelled') {
+    setTimeout(() => {
+      alert('Paiement annule. Vous pouvez reessayer quand vous voulez.');
+    }, 500);
+  }
+}
+
+// Call on page load (inside init or after)
+handlePaymentReturn();
 

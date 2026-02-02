@@ -15,10 +15,13 @@ import * as lotteryService from "./services/lotteryService.js";
 import * as referralService from "./services/referralService.js";
 import * as packService from "./services/packService.js";
 
-// Stripe setup (graceful if key missing - endpoints will return error instead of crashing)
-const stripe = process.env.STRIPE_SECRET_KEY
-  ? new Stripe(process.env.STRIPE_SECRET_KEY)
-  : null;
+// Stripe setup - read from env var or Render secret file
+import { readFileSync } from 'fs';
+let stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+if (!stripeSecretKey) {
+  try { stripeSecretKey = readFileSync('/etc/secrets/STRIPE_SECRET_KEY', 'utf8').trim(); } catch {}
+}
+const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
 
 const app = express();
 const httpServer = createServer(app);

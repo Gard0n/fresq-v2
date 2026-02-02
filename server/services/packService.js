@@ -338,8 +338,17 @@ export async function updatePackConfig(client, packKey, updates) {
       throw new Error('Pack not found');
     }
 
-    // Recalculate discount_percent if price or total_tickets changed
-    if (updates.price || updates.total_tickets) {
+    // Recalculate total_tickets if base or bonus changed
+    if (updates.base_tickets !== undefined || updates.bonus_tickets !== undefined) {
+      await client.query(`
+        UPDATE pack_configs
+        SET total_tickets = base_tickets + bonus_tickets
+        WHERE pack_key = $1
+      `, [packKey]);
+    }
+
+    // Recalculate discount_percent if price, base_tickets, or bonus_tickets changed
+    if (updates.price !== undefined || updates.total_tickets !== undefined || updates.base_tickets !== undefined || updates.bonus_tickets !== undefined) {
       await client.query(`
         UPDATE pack_configs
         SET discount_percent = (
